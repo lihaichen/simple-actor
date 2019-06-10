@@ -27,6 +27,8 @@ struct actor_node {
 static struct actor_node G_NODE;
 static void context_inc(void);
 static void context_dec(void);
+static void dispatch_message(struct actor_context* ctx,
+                             struct actor_message* msg);
 
 int actor_context_total() {
   return G_NODE.total;
@@ -88,4 +90,39 @@ void actor_callback(struct actor_context* context, void* ud, actor_cb cb) {
   context->cb_ud = ud;
 }
 
+struct actor_message_queue* actor_context_message_dispatch(
+    struct actor_message_queue* mq,
+    int weight) {
+  if (mq == NULL) {
+    mq = actor_globalmq_pop();
+    if (mq == NULL)
+      return mq;
+  }
+  struct actor_context* ctx = acontainer_of(mq, struct actor_context, queue);
+  int len = actor_mq_length(mq);
+  len = len > weight ? weight : len;
+  struct actor_message msg;
+  for (int i = 0; i < len; i++) {
+    if (actor_mq_pop(mq, &msg)) {
+      return actor_globalmq_pop();
+    }
+    if (ctx->cb == NULL) {
+      // 按照规则释放msg
+    } else {
+      dispatch_message(ctx, &msg);
+    }
+  }
+  struct message_queue* nq = actor_globalmq_pop();
+  if (nq) {
+    actor_globalmq_push(mq);
+    mq = nq;
+  }
+  return mq;
+}
 
+static void dispatch_message(struct actor_context* ctx,
+                             struct actor_message* msg) {
+  ctx->cb(ctx, ctx->cb_ud, msg->type, msg->session, msg->source, msg->data,
+          msg->sz);
+  // 按照规则释放msg
+}

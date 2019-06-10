@@ -8,9 +8,11 @@ extern "C" {
 struct actor_message {
 	int source;
 	int session;
+    int type;
 	void * data;
 	int sz;
 };
+
 
 #define ACTOR_MESSAGE_TYPE_MASK (SIZE_MAX >> 8)
 #define ACTOR_MESSAGE_TYPE_SHIFT ((sizeof(size_t)-1) * 8)
