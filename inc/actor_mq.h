@@ -21,16 +21,25 @@ struct actor_message {
 struct actor_message_queue;
 
 void actor_globalmq_init(void);
+void actor_globalmq_deinit(void);
 
 void actor_globalmq_push(struct actor_message_queue* queue);
 struct actor_message_queue* actor_globalmq_pop(void);
+void actor_globalmq_rm(struct actor_message_queue* mq);
 
 struct actor_message_queue* actor_mq_create(struct actor_context* context);
+/**
+ * @brief 释放mq
+ * 释放前需要释放mq中msg,移除globalmq
+ */
+void actor_mq_release(struct actor_message_queue* mq);
+
 struct actor_context* actor_mq_get_context(struct actor_message_queue* mq);
 int actor_mq_pop(struct actor_message_queue* mq, struct actor_message* message);
 void actor_mq_push(struct actor_message_queue* mq,
                    struct actor_message* message);
 int actor_mq_length(struct actor_message_queue* mq);
+int actor_mq_cap(struct actor_message_queue* mq);
 
 #ifdef __cplusplus
 }

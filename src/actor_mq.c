@@ -33,9 +33,22 @@ void actor_globalmq_init(void) {
   Q = q;
 }
 
+void actor_globalmq_deinit(void) {
+  // free global mq
+  ACTOR_SPIN_DESTROY(Q);
+  ACTOR_FREE(Q);
+  Q = NULL;
+}
+
 void actor_globalmq_push(struct actor_message_queue* mq) {
   ACTOR_SPIN_LOCK(Q);
-  alist_insert_after(&Q->list, &mq->list);
+  alist_insert_before(&Q->list, &mq->list);
+  ACTOR_SPIN_UNLOCK(Q);
+}
+
+void actor_globalmq_rm(struct actor_message_queue* mq) {
+  ACTOR_SPIN_LOCK(Q);
+  alist_remove(&mq->list);
   ACTOR_SPIN_UNLOCK(Q);
 }
 
@@ -63,9 +76,18 @@ struct actor_message_queue* actor_mq_create(struct actor_context* context) {
   alist_init(&q->list);
   return q;
 }
+/**
+ * @brief 释放mq
+ * 释放前需要释放mq中msg,移除globalmq
+ */
+void actor_mq_release(struct actor_message_queue* mq) {
+  ACTOR_SPIN_DESTROY(mq);
+  ACTOR_FREE(mq->queue);
+  ACTOR_FREE(mq);
+  return;
+}
 
-struct actor_context* actor_mq_get_context(
-    struct actor_message_queue* mq) {
+struct actor_context* actor_mq_get_context(struct actor_message_queue* mq) {
   return mq->context;
 }
 
@@ -92,7 +114,7 @@ static int expand_queue(struct actor_message_queue* mq) {
     return -1;
 
   struct actor_message* new_queue =
-      ACTOR_MALLOC(sizeof(struct actor_message) * mq->cap * 2);
+      ACTOR_MALLOC(sizeof(struct actor_message) * (mq->cap + 10));
   if (new_queue == NULL)
     return -1;
   for (int i = 0; i < mq->cap; i++) {
@@ -100,7 +122,7 @@ static int expand_queue(struct actor_message_queue* mq) {
   }
   mq->head = 0;
   mq->tail = mq->cap;
-  mq->cap *= 2;
+  mq->cap += 10;
 
   ACTOR_FREE(mq->queue);
   mq->queue = new_queue;
@@ -117,7 +139,7 @@ void actor_mq_push(struct actor_message_queue* mq,
   }
 
   if (mq->head == mq->tail) {
-    if (expand_queue(mq) == -1) {
+    if (expand_queue(mq) != 0) {
       ACTOR_PRINT("mq full, drap old msg\n");
       // 需要根据消息的情况进行释放。
       if (++mq->head >= mq->cap) {
@@ -146,4 +168,12 @@ int actor_mq_length(struct actor_message_queue* mq) {
     return tail - head;
   }
   return tail + cap - head;
+}
+
+int actor_mq_cap(struct actor_message_queue* mq) {
+  int cap;
+  ACTOR_SPIN_LOCK(mq);
+  cap = mq->cap;
+  ACTOR_SPIN_UNLOCK(mq);
+  return cap;
 }
