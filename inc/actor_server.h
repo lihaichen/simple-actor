@@ -12,7 +12,7 @@ typedef int (*actor_cb)(struct actor_context* context,
                         void* ud,
                         int type,
                         int session,
-                        int source,
+                        void* source,
                         const void* msg,
                         int sz);
 
@@ -22,19 +22,19 @@ extern void actor_context_grab(struct actor_context* ctx);
 extern struct actor_context* actor_context_release(struct actor_context* ctx);
 extern struct actor_context* actor_context_new(const char* name,
                                                const char* param);
-extern void actor_callback(struct actor_context* context,
-                           actor_cb cb,
-                           void* ud);
-struct actor_message_queue* actor_context_message_dispatch(
+extern void actor_context_callback(struct actor_context* context,
+                                   actor_cb cb,
+                                   void* ud);
+extern char* actor_context_name(struct actor_context* context);
+extern struct actor_message_queue* actor_context_message_dispatch(
     struct actor_message_queue* mq,
     int weight);
-int actor_send(struct actor_context* ctx,
-               void* source,
-               void* destination,
-               int type,
-               int session,
-               void* data,
-               int sz);
+extern int actor_context_send(void* source,
+                              void* destination,
+                              int type,
+                              int session,
+                              void* data,
+                              int sz);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

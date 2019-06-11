@@ -22,8 +22,8 @@ $(OBJS): %.o: %.c
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
 test: $(SLIB)
-	$(CC) $(INC) $(CFLAGS) $(TEST_C_SOURCES) $(C_SOURCES) -lcriterion -lpthread -o $(BUILD)/$@
-
+	$(CC) $(INC) $(CFLAGS) $(TEST_C_SOURCES) $(C_SOURCES)  -lpthread -o $(BUILD)/$@
+#-lcriterion
 $(DLIB): $(OBJS)
 	$(CC) $(INC) $(CFLAGS)  -fPIC -shared  $^ -o $@
 
@@ -31,8 +31,10 @@ $(SLIB): $(OBJS)
 	ar -rc $@ $^
 
 lib: $(SLIB) $(DLIB)
-
+	$(MKDIR) $(BUILD)
+	
 all: lib test
+	
 
 clean:
 	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB) $(BUILD)/test

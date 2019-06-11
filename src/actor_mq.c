@@ -15,6 +15,7 @@ struct actor_message_queue {
   int in_global;
   struct actor_message* queue;
   alist_node_t list;
+  struct actor_context* context;
 };
 
 struct actor_global_queue {
@@ -24,7 +25,7 @@ struct actor_global_queue {
 
 static struct actor_global_queue* Q = NULL;
 
-void actor_mq_init(void) {
+void actor_globalmq_init(void) {
   struct actor_global_queue* q = ACTOR_MALLOC(sizeof(*q));
   memset(q, 0, sizeof(*q));
   alist_init(&q->list);
@@ -43,23 +44,29 @@ struct actor_message_queue* actor_globalmq_pop() {
   ACTOR_SPIN_LOCK(q);
   struct actor_message_queue* mq = NULL;
   if (!alist_isempty(&Q->list)) {
-    mq = acontainer_of(&Q->list.next, struct actor_message_queue, list);
+    mq = acontainer_of(Q->list.next, struct actor_message_queue, list);
     alist_remove(&mq->list);
   }
   ACTOR_SPIN_UNLOCK(q);
   return mq;
 }
 
-struct actor_message_queue* actor_mq_create() {
+struct actor_message_queue* actor_mq_create(struct actor_context* context) {
   struct actor_message_queue* q = ACTOR_MALLOC(sizeof(*q));
   q->cap = DEFAULT_QUEUE_SIZE;
   q->head = 0;
   q->tail = 0;
+  q->context = context;
   ACTOR_SPIN_INIT(q);
   q->in_global = 0;
   q->queue = ACTOR_MALLOC(sizeof(struct actor_message) * q->cap);
   alist_init(&q->list);
   return q;
+}
+
+struct actor_context* actor_mq_get_context(
+    struct actor_message_queue* mq) {
+  return mq->context;
 }
 
 int actor_mq_pop(struct actor_message_queue* mq,
@@ -69,7 +76,7 @@ int actor_mq_pop(struct actor_message_queue* mq,
   if (mq->head != mq->tail) {
     *message = mq->queue[mq->head++];
     ret = 0;
-    // mq->head %= mq->cap;
+    // ++mq->head %= mq->cap;
     if (mq->head >= mq->cap)
       mq->head = 0;
   }

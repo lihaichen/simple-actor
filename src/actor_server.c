@@ -54,15 +54,15 @@ void actor_context_grab(struct actor_context* ctx) {
 }
 
 struct actor_context* actor_context_release(struct actor_context* ctx) {
-  // ATOM_DEC(&ctx->ref);
-  // if (ctx->ref == 0) {
-  //   // 消息队列的消息处理掉
-  //   alist_remove(&ctx->list);
-  //   ACTOR_FREE(ctx->queue);
-  //   ACTOR_FREE(ctx);
-  //   context_dec();
-  //   return NULL;
-  // }
+  ATOM_DEC(&ctx->ref);
+  if (ctx->ref == 0) {
+    // 消息队列的消息处理掉
+    alist_remove(&ctx->list);
+    ACTOR_FREE(ctx->queue);
+    ACTOR_FREE(ctx);
+    context_dec();
+    return NULL;
+  }
   return ctx;
 }
 
@@ -76,7 +76,7 @@ struct actor_context* actor_context_new(const char* name, const char* param) {
   ctx->cpu_cost = 0;
   ctx->cpu_start = 0;
   strncpy(ctx->name, name, ACTOR_NAME_SIZE - 1);
-  ctx->queue = actor_mq_create();
+  ctx->queue = actor_mq_create(ctx);
   ACTOR_ASSERT(ctx->queue != NULL);
   alist_init(&ctx->list);
   ACTOR_SPIN_LOCK(&G_NODE);
@@ -87,9 +87,15 @@ struct actor_context* actor_context_new(const char* name, const char* param) {
   return ctx;
 }
 
-void actor_callback(struct actor_context* context, actor_cb cb, void* ud) {
-  // context->cb = cb;
+void actor_context_callback(struct actor_context* context,
+                            actor_cb cb,
+                            void* ud) {
+  context->cb = cb;
   context->cb_ud = ud;
+}
+
+char* actor_context_name(struct actor_context* context) {
+  return context->name;
 }
 
 struct actor_message_queue* actor_context_message_dispatch(
@@ -100,9 +106,10 @@ struct actor_message_queue* actor_context_message_dispatch(
     if (mq == NULL)
       return mq;
   }
-  struct actor_context* ctx = acontainer_of(mq, struct actor_context, queue);
+  struct actor_context* ctx = actor_mq_get_context(mq);
   int len = actor_mq_length(mq);
   len = len > weight ? weight : len;
+  len = len < 1 ? 1 : len;
   struct actor_message msg;
   for (int i = 0; i < len; i++) {
     if (actor_mq_pop(mq, &msg)) {
@@ -122,22 +129,14 @@ struct actor_message_queue* actor_context_message_dispatch(
   return mq;
 }
 
-static void dispatch_message(struct actor_context* ctx,
-                             struct actor_message* msg) {
-  ctx->cb(ctx, ctx->cb_ud, msg->type, msg->session, msg->source, msg->data,
-          msg->sz);
-  // 按照规则释放msg
-}
-
-int actor_send(struct actor_context* ctx,
-               void* source,
-               void* destination,
-               int type,
-               int session,
-               void* data,
-               int sz) {
+int actor_context_send(void* source,
+                       void* destination,
+                       int type,
+                       int session,
+                       void* data,
+                       int sz) {
   struct actor_message msg;
-  msg.source = (int)source;
+  msg.source = source;
   msg.session = session;
   msg.data = data;
   msg.sz = sz;
@@ -145,4 +144,12 @@ int actor_send(struct actor_context* ctx,
   struct actor_context* des_ctx = (struct actor_context*)(destination);
   actor_mq_push(des_ctx->queue, &msg);
   return session;
+}
+
+
+static void dispatch_message(struct actor_context* ctx,
+                             struct actor_message* msg) {
+  ctx->cb(ctx, ctx->cb_ud, msg->type, msg->session, msg->source, msg->data,
+          msg->sz);
+  // 按照规则释放msg
 }
