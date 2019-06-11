@@ -11,6 +11,8 @@ extern "C" {
 #define acontainer_of(node, type, member) \
   ((type*)((char*)(node) - (unsigned long)(&((type*)0)->member)))
 
+void actor_start(int thread_count);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

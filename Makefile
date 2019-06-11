@@ -2,10 +2,11 @@ BUILD ?= build
 
 C_SOURCES += src/actor_mq.c \
 src/actor_server.c \
+src/actor_start.c
 
-TEST_C_SOURCES += test/main.c 
+TEST_C_SOURCES += test/main.c
 
-CFLAGS = -g -O2 -Wall  
+CFLAGS = -g -O2 -Wall
 
 INC += -Iinc
 
@@ -14,17 +15,17 @@ OBJS := ${patsubst %.c, %.o, $(C_SOURCES)}
 TEST_OBJS := ${patsubst %.c, %.o, $(TEST_C_SOURCES)}
 
 
-SLIB = $(BUILD)/simple_akka.a
-DLIB = $(BUILD)/simple_akka.so
+SLIB = $(BUILD)/libsimple_akka.a
+DLIB = $(BUILD)/libsimple_akka.so
 
 $(OBJS): %.o: %.c
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
-test: $(TEST_OBJS) $(OBJS) 
-	$(CC) $(INC) $(CFLAGS) -o $@ 
+test: $(SLIB)
+	$(CC) $(INC) $(CFLAGS) $(TEST_C_SOURCES) $(C_SOURCES) -lcriterion -lpthread -o $(BUILD)/$@
 
 $(DLIB): $(OBJS)
-	$(CC) $(INC) $(CFLAGS)  -fPIC -shared  $^ -o $@ 
+	$(CC) $(INC) $(CFLAGS)  -fPIC -shared  $^ -o $@
 
 $(SLIB): $(OBJS)
 	ar -rc $@ $^
@@ -34,5 +35,5 @@ lib: $(SLIB) $(DLIB)
 all: lib test
 
 clean:
-	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB)
+	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB) $(BUILD)/test
 

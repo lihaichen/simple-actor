@@ -123,7 +123,6 @@ void actor_mq_push(struct actor_message_queue* mq,
     mq->in_global = 1;
     actor_globalmq_push(mq);
   }
-
   ACTOR_SPIN_UNLOCK(mq);
 }
 

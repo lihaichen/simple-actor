@@ -54,13 +54,15 @@ void actor_context_grab(struct actor_context* ctx) {
 }
 
 struct actor_context* actor_context_release(struct actor_context* ctx) {
-  if (ATOM_DEC(&ctx->ref) == 0) {
-    alist_remove(&ctx->list);
-    ACTOR_FREE(ctx->queue);
-    ACTOR_FREE(ctx);
-    context_dec();
-    return NULL;
-  }
+  // ATOM_DEC(&ctx->ref);
+  // if (ctx->ref == 0) {
+  //   // 消息队列的消息处理掉
+  //   alist_remove(&ctx->list);
+  //   ACTOR_FREE(ctx->queue);
+  //   ACTOR_FREE(ctx);
+  //   context_dec();
+  //   return NULL;
+  // }
   return ctx;
 }
 
@@ -85,8 +87,8 @@ struct actor_context* actor_context_new(const char* name, const char* param) {
   return ctx;
 }
 
-void actor_callback(struct actor_context* context, void* ud, actor_cb cb) {
-  context->cb = cb;
+void actor_callback(struct actor_context* context, actor_cb cb, void* ud) {
+  // context->cb = cb;
   context->cb_ud = ud;
 }
 
@@ -112,7 +114,7 @@ struct actor_message_queue* actor_context_message_dispatch(
       dispatch_message(ctx, &msg);
     }
   }
-  struct message_queue* nq = actor_globalmq_pop();
+  struct actor_message_queue* nq = actor_globalmq_pop();
   if (nq) {
     actor_globalmq_push(mq);
     mq = nq;
@@ -125,4 +127,22 @@ static void dispatch_message(struct actor_context* ctx,
   ctx->cb(ctx, ctx->cb_ud, msg->type, msg->session, msg->source, msg->data,
           msg->sz);
   // 按照规则释放msg
+}
+
+int actor_send(struct actor_context* ctx,
+               void* source,
+               void* destination,
+               int type,
+               int session,
+               void* data,
+               int sz) {
+  struct actor_message msg;
+  msg.source = (int)source;
+  msg.session = session;
+  msg.data = data;
+  msg.sz = sz;
+  msg.type = type;
+  struct actor_context* des_ctx = (struct actor_context*)(destination);
+  actor_mq_push(des_ctx->queue, &msg);
+  return session;
 }
