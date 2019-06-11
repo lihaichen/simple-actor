@@ -98,6 +98,17 @@ char* actor_context_name(struct actor_context* context) {
   return context->name;
 }
 
+struct actor_context* actor_context_find(const char* name) {
+  alist_node_t* list = &G_NODE.list;
+  struct actor_context* res = NULL;
+  for (struct alist_node* node = list->next; node != list; node = node->next) {
+    res = acontainer_of(node, struct actor_context, list);
+    if (strncmp(res->name, name, ACTOR_NAME_SIZE) == 0)
+      return res;
+  }
+  return NULL;
+}
+
 struct actor_message_queue* actor_context_message_dispatch(
     struct actor_message_queue* mq,
     int weight) {
@@ -145,7 +156,6 @@ int actor_context_send(void* source,
   actor_mq_push(des_ctx->queue, &msg);
   return session;
 }
-
 
 static void dispatch_message(struct actor_context* ctx,
                              struct actor_message* msg) {

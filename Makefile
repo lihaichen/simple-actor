@@ -6,6 +6,8 @@ src/actor_start.c
 
 TEST_C_SOURCES += test/main.c
 
+UNIT_C_SOURCES += test/server.c
+
 CFLAGS = -g -O2 -Wall
 
 INC += -Iinc
@@ -21,9 +23,12 @@ DLIB = $(BUILD)/libsimple_akka.so
 $(OBJS): %.o: %.c
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
+unit:
+	$(CC) $(INC) $(CFLAGS) $(UNIT_C_SOURCES) $(C_SOURCES) -lcriterion -lpthread -o $(BUILD)/$@
+
 test: $(SLIB)
 	$(CC) $(INC) $(CFLAGS) $(TEST_C_SOURCES) $(C_SOURCES)  -lpthread -o $(BUILD)/$@
-#-lcriterion
+
 $(DLIB): $(OBJS)
 	$(CC) $(INC) $(CFLAGS)  -fPIC -shared  $^ -o $@
 
@@ -37,5 +42,5 @@ all: lib test
 	
 
 clean:
-	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB) $(BUILD)/test
+	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB) $(BUILD)/test $(BUILD)/unit
 
