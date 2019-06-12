@@ -57,6 +57,13 @@ struct actor_context* actor_context_release(struct actor_context* ctx) {
   ATOM_DEC(&ctx->ref);
   if (ctx->ref == 0) {
     // 消息队列的消息处理掉
+    while (1) {
+      struct actor_message msg;
+      int ret = actor_mq_pop(ctx->queue, &msg);
+      if (ret != 0)
+        break;
+      actor_destroy_message(&msg);
+    }
     alist_remove(&ctx->list);
     ACTOR_FREE(ctx->queue);
     ACTOR_FREE(ctx);
@@ -126,11 +133,11 @@ struct actor_message_queue* actor_context_message_dispatch(
     if (actor_mq_pop(mq, &msg)) {
       return actor_globalmq_pop();
     }
-    if (ctx->cb == NULL) {
-      // 按照规则释放msg
-    } else {
+    if (ctx->cb != NULL) {
       dispatch_message(ctx, &msg);
     }
+    // 按照规则释放msg
+    actor_destroy_message(&msg);
   }
   struct actor_message_queue* nq = actor_globalmq_pop();
   if (nq) {
@@ -139,7 +146,7 @@ struct actor_message_queue* actor_context_message_dispatch(
   }
   return mq;
 }
-
+extern void actor_thread_wakeup(void);
 int actor_context_send(void* source,
                        void* destination,
                        int type,
@@ -147,19 +154,36 @@ int actor_context_send(void* source,
                        void* data,
                        int sz) {
   struct actor_message msg;
+  ACTOR_ASSERT(source != NULL);
+  ACTOR_ASSERT(destination != NULL);
   msg.source = source;
   msg.session = session;
-  msg.data = data;
+
   msg.sz = sz;
   msg.type = type;
+  if ((type & ACTOR_MSG_TAG_DONTCOPY) == ACTOR_MSG_TAG_DONTCOPY) {
+    msg.data = data;
+  } else {
+    msg.data = ACTOR_MALLOC(sz + 1);
+    ACTOR_ASSERT(msg.data != NULL);
+    ((char*)msg.data)[sz] = 0;
+    memcpy(msg.data, data, sz);
+  }
   struct actor_context* des_ctx = (struct actor_context*)(destination);
   actor_mq_push(des_ctx->queue, &msg);
+  actor_thread_wakeup();
   return session;
+}
+
+void actor_destroy_message(struct actor_message* msg) {
+  if ((msg->type & ACTOR_MSG_TAG_DONTCOPY) != ACTOR_MSG_TAG_DONTCOPY) {
+    ACTOR_FREE(msg->data);
+  }
+  return;
 }
 
 static void dispatch_message(struct actor_context* ctx,
                              struct actor_message* msg) {
   ctx->cb(ctx, ctx->cb_ud, msg->type, msg->session, msg->source, msg->data,
           msg->sz);
-  // 按照规则释放msg
 }

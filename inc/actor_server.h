@@ -7,6 +7,7 @@ extern "C" {
 
 struct actor_context;
 struct actor_message_queue;
+struct actor_message;
 
 typedef int (*actor_cb)(struct actor_context* context,
                         void* ud,
@@ -32,13 +33,16 @@ extern char* actor_context_name(struct actor_context* context);
 extern struct actor_message_queue* actor_context_message_dispatch(
     struct actor_message_queue* mq,
     int weight);
+
 extern int actor_context_send(void* source,
                               void* destination,
                               int type,
                               int session,
                               void* data,
                               int sz);
-                              
+
+extern void actor_destroy_message(struct actor_message* msg);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

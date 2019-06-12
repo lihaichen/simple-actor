@@ -81,6 +81,7 @@ struct actor_message_queue* actor_mq_create(struct actor_context* context) {
  * 释放前需要释放mq中msg,移除globalmq
  */
 void actor_mq_release(struct actor_message_queue* mq) {
+  actor_globalmq_rm(mq);
   ACTOR_SPIN_DESTROY(mq);
   ACTOR_FREE(mq->queue);
   ACTOR_FREE(mq);
@@ -129,6 +130,8 @@ static int expand_queue(struct actor_message_queue* mq) {
   return 0;
 }
 
+extern void actor_destroy_message(struct actor_message* msg);
+
 void actor_mq_push(struct actor_message_queue* mq,
                    struct actor_message* message) {
   ACTOR_SPIN_LOCK(mq);
@@ -142,6 +145,7 @@ void actor_mq_push(struct actor_message_queue* mq,
     if (expand_queue(mq) != 0) {
       ACTOR_PRINT("mq full, drap old msg\n");
       // 需要根据消息的情况进行释放。
+      actor_destroy_message(&mq->queue[mq->head]);
       if (++mq->head >= mq->cap) {
         mq->tail = 0;
       }
