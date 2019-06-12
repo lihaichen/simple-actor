@@ -19,20 +19,24 @@ int print_cb(struct actor_context* context,
   return 0;
 }
 int main() {
-  actor_start(2);
+  actor_start(3);
   struct actor_context* ctx1 = actor_context_new("actor1", NULL);
   struct actor_context* ctx2 = actor_context_new("actor2", NULL);
+  struct actor_context* ctx3 = actor_context_new("actor3", NULL);
   actor_context_callback(ctx1, print_cb, NULL);
   actor_context_callback(ctx2, print_cb, NULL);
-  printf("ctx1 %p ctx2 %p, sizeof(int)%ld\n", ctx1, ctx2, sizeof(int));
+  actor_context_callback(ctx3, print_cb, NULL);
 
   actor_context_send(ctx2, ctx2, 0, 0, "hello1", 5);
   actor_context_send(ctx1, ctx1, 0, 0, "hello2", 5);
   actor_context_send(ctx1, ctx2, 0, 0, "hello3", 5);
+  actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
+  actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
   sleep(1);
-  for (int i = 0; i < 50; i++) {
-    actor_context_send(ctx1, ctx1, 0, i, "hello4", 5);
-    actor_context_send(ctx1, ctx2, 0, i, "hello4", 5);
+  for (int i = 0; i < 10; i++) {
+    actor_context_send(ctx1, ctx1, 0, i, "hello11", 7);
+    actor_context_send(ctx1, ctx2, 0, i, "hello22", 7);
+    actor_context_send(ctx1, ctx3, 0, i, "hello33", 7);
   }
 
   sleep(10);

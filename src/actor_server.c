@@ -154,7 +154,7 @@ int actor_context_send(void* source,
                        void* data,
                        int sz) {
   struct actor_message msg;
-  ACTOR_ASSERT(source != NULL);
+  // ACTOR_ASSERT(source != NULL);
   ACTOR_ASSERT(destination != NULL);
   msg.source = source;
   msg.session = session;
