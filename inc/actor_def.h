@@ -9,6 +9,7 @@ extern "C" {
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include <semaphore.h>
 
 #define ACTOR_MALLOC(size) malloc(size)
 #define ACTOR_CALLOC(n, size) calloc(n, size)

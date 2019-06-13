@@ -14,13 +14,14 @@ typedef struct actor_timer {
   int session;
   struct actor_context* context;
   actor_tick_t expire;
-  int time;
+  int time;  // <0 as oneshot timer, >0 as period timer
 } actor_timer_t;
 
 typedef struct actor_timer_node {
   struct aheap heap;
   struct actor_spinlock lock;
   pthread_t pid;
+  ACTOR_SEM_TYPE sem;
 } actor_timer_node_t;
 
 static int min_heap(void* a, void* b);
@@ -35,6 +36,7 @@ static actor_timer_node_t G_NODE;
 
 void actor_timer_init(void) {
   ACTOR_SPIN_INIT(&G_NODE);
+  ACTOR_SEM_INIT(&G_NODE.sem, 0, 0);
   aheap_init(&G_NODE.heap, 16, min_heap);
   pthread_create(&G_NODE.pid, NULL, thread_worker, NULL);
   return;
@@ -42,6 +44,8 @@ void actor_timer_init(void) {
 
 void actor_timer_deinit(void) {
   aheap_destroy(&G_NODE.heap);
+  ACTOR_SME_DESTROY(&G_NODE.sem);
+  ACTOR_SPIN_DESTROY(&G_NODE);
   return;
 }
 
@@ -122,6 +126,13 @@ static int insert_timer(actor_timer_t* timer) {
   ACTOR_SPIN_LOCK(&G_NODE);
   res = aheap_insert(&G_NODE.heap, timer);
   ACTOR_SPIN_UNLOCK(&G_NODE);
+  // wake up timer thread
+  int sem_value = 0;
+  ACTOR_SEM_GET_VALUE(&G_NODE.sem, &sem_value);
+  if (sem_value < 0) {
+    ACTOR_SEM_POST(&G_NODE.sem);
+    printf("wait sem value ===%d\n", sem_value);
+  }
   return res;
 }
 
@@ -141,13 +152,18 @@ static void* thread_worker(void* p) {
   while (1) {
     actor_tick_t current_ms;
     actor_timer_t* timer = NULL;
+    struct timespec ts;
+    int diff = -1;
     while (1) {
       if (aheap_len(&G_NODE.heap) < 1)
         break;
       ACTOR_GET_TICK(&current_ms);
       timer = aheap_getFist(&G_NODE.heap);
+      if (timer == NULL)
+        break;
       // not timeout
-      if (timer == NULL || !IS_TIMEOUT(current_ms, timer->expire))
+      diff = timer->expire - current_ms;
+      if (!IS_TIMEOUT(current_ms, timer->expire))
         break;
       ACTOR_SPIN_LOCK(&G_NODE);
       timer = aheap_delFist(&G_NODE.heap);
@@ -160,7 +176,15 @@ static void* thread_worker(void* p) {
         ACTOR_FREE(timer);
       }
     }
-    ACTOR_MSLEEP(2);
+    ACTOR_GET_TICK(&current_ms);
+    if (diff < 0) {
+      current_ms += 1000;  // delay 1 second
+    } else {
+      current_ms += diff;
+    }
+    ts.tv_nsec = (current_ms % 1000) * 1000 * 1000;
+    ts.tv_sec = current_ms / 1000;
+    ACTOR_SEM_WAIT_TIME(&G_NODE.sem, &ts);
   }
   return NULL;
 }

@@ -18,7 +18,7 @@ static struct monitor M;
 
 void actor_thread_wakeup(void) {
   if (M.sleep > 0) {
-    ACTOR_PRINT("wakeup %d\n", M.sleep);
+    // ACTOR_PRINT("wakeup %d\n", M.sleep);
     pthread_cond_signal(&M.cond);
   }
 }
@@ -34,7 +34,7 @@ static void* thread_worker(void* p) {
       // ACTOR_EXIT_LOCK(&mutex);
       if (pthread_mutex_lock(&M.mutex) == 0) {
         M.sleep++;
-        ACTOR_PRINT("sleep count %d\n", M.sleep);
+        // ACTOR_PRINT("sleep count %d\n", M.sleep);
         pthread_cond_wait(&M.cond, &M.mutex);
         M.sleep--;
         pthread_mutex_unlock(&M.mutex);
