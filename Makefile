@@ -7,7 +7,8 @@ src/actor_start.c
 TEST_C_SOURCES += test/main.c
 
 UNIT_C_SOURCES += test/server_test.c \
-test/mq_test.c 
+test/mq_test.c  \
+test/heap_test.c 
 
 CFLAGS = -g -O2 -Wall
 

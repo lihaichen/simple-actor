@@ -13,7 +13,7 @@ struct monitor {
 
 static struct monitor M;
 
-static ACTOR_LOCK_TYPE mutex;
+// static ACTOR_LOCK_TYPE mutex;
 
 void actor_thread_wakeup(void) {
   if (M.sleep > 0) {
@@ -25,7 +25,7 @@ void actor_thread_wakeup(void) {
 static void* thread_worker(void* p) {
   struct actor_message_queue* q = NULL;
   while (1) {
-    ACTOR_PRINT("thread %d\n", (int)p);
+    // ACTOR_PRINT("thread %d\n", (int)p);
     q = actor_context_message_dispatch(q, 1);
     if (q == NULL) {
       // ACTOR_ENTER_LOCK(&mutex);
@@ -54,7 +54,7 @@ void actor_start(int thread_count) {
   actor_globalmq_init();
   actor_server_init();
   for (int i = 0; i < thread_count; i++) {
-    pthread_create(&pid[i], NULL, thread_worker, i);
+    pthread_create(&pid[i], NULL, thread_worker, NULL);
   }
   // for (int i = 0; i < thread_count; i++) {
   //   pthread_join(pid[i], NULL);

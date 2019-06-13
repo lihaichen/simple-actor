@@ -52,7 +52,7 @@ Test(actor_mq, second_mq) {
       msg.session = 0xAA + i;
       actor_mq_push(mq, &msg);
     }
-    printf("cap %d len %d\n", actor_mq_cap(mq), actor_mq_length(mq));
+   
     cr_expect_eq(actor_mq_length(mq), test_count[j], "second len not eq");
     for (int i = 0; i < test_count[j]; i++) {
       actor_mq_pop(mq, &tmp);
