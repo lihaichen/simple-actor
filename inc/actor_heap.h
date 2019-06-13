@@ -9,6 +9,8 @@ extern "C" {
 struct aheap;
 // (a > b 1) (a == b 0) (a < b -1) max heap
 typedef int (*compare)(void* a, void* b);
+// 0 继续遍历 其他不在遍历
+typedef int (*map)(int, void*);
 struct aheap {
   int len;
   int cap;
@@ -105,12 +107,42 @@ inline int aheap_insert(struct aheap* heap, void* v) {
   return 0;
 }
 
-inline void* delFist(struct aheap* heap) {
+inline void* aheap_get(struct aheap* heap, int index) {
+  if (index < 1 || index > heap->len) {
+    return NULL;
+  }
+  return heap->pq[index];
+}
+
+inline void* aheap_getFist(struct aheap* heap) {
+  return heap->pq[1];
+}
+
+inline void* aheap_delFist(struct aheap* heap) {
   void* tmp = heap->pq[1];
   aexch(heap, 1, heap->len--);
   heap->pq[heap->len + 1] = NULL;
   asink(heap, 1);
   return tmp;
+}
+
+inline void* aheap_delete(struct aheap* heap, int k) {
+  if (k < 1 || k > heap->len) {
+    return NULL;
+  }
+  void* tmp = heap->pq[k];
+  aexch(heap, k, heap->len--);
+  asink(heap, k);
+  asink(heap, k);
+  heap->pq[heap->len + 1] = NULL;
+  return tmp;
+}
+
+inline void aheap_foreach(struct aheap* heap, map func) {
+  for (int i = 1; i <= heap->len; i++) {
+    if (func(i, heap->pq[i]) != 0)
+      break;
+  }
 }
 
 #ifdef __cplusplus

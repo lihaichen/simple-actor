@@ -161,7 +161,8 @@ int actor_context_send(void* source,
 
   msg.sz = sz;
   msg.type = type;
-  if ((type & ACTOR_MSG_TAG_DONTCOPY) == ACTOR_MSG_TAG_DONTCOPY) {
+  if ((type & ACTOR_MSG_TAG_DONTCOPY) == ACTOR_MSG_TAG_DONTCOPY ||
+          data == NULL || sz == 0) {
     msg.data = data;
   } else {
     msg.data = ACTOR_MALLOC(sz + 1);

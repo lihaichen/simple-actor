@@ -3,6 +3,7 @@
 #include "actor_common.h"
 #include "actor_mq.h"
 #include "actor_server.h"
+#include "actor_timer.h"
 
 struct monitor {
   int count;
@@ -25,7 +26,7 @@ void actor_thread_wakeup(void) {
 static void* thread_worker(void* p) {
   struct actor_message_queue* q = NULL;
   while (1) {
-    // ACTOR_PRINT("thread %d\n", (int)p);
+    ACTOR_PRINT("thread %ld\n", (long)p);
     q = actor_context_message_dispatch(q, 1);
     if (q == NULL) {
       // ACTOR_ENTER_LOCK(&mutex);
@@ -53,8 +54,9 @@ void actor_start(int thread_count) {
   // ACTOR_INIT_LOCK(&mutex);
   actor_globalmq_init();
   actor_server_init();
+  actor_timer_init();
   for (int i = 0; i < thread_count; i++) {
-    pthread_create(&pid[i], NULL, thread_worker, NULL);
+    pthread_create(&pid[i], NULL, thread_worker, (void*)(long)i);
   }
   // for (int i = 0; i < thread_count; i++) {
   //   pthread_join(pid[i], NULL);

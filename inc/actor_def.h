@@ -7,12 +7,17 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/time.h>
 
 #define ACTOR_MALLOC(size) malloc(size)
 #define ACTOR_CALLOC(n, size) calloc(n, size)
 #define ACTOR_FREE(p) free(p)
 
 #define ACTOR_MSLEEP(ms) usleep((ms)*1000)
+
+typedef unsigned long long actor_tick_t;
+#define ACTOR_MAX_TICK 0xFFFFFFFFFFFFFFFF
 
 #define ACTOR_GET_TICK(ms)                                                  \
   do {                                                                       \

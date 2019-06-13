@@ -9,6 +9,18 @@ struct actor_context;
 struct actor_message_queue;
 struct actor_message;
 
+#define ACTOR_MSG_TYPE_TEXT 0
+#define ACTOR_MSG_TYPE_BIN 1
+#define ACTOR_MSG_TYPE_RESPONSE 2
+#define ACTOR_MSG_TYPE_INIT 3
+#define ACTOR_MSG_TYPE_EXIT 4
+#define ACTOR_MSG_TYPE_SYSTEM 5
+#define ACTOR_MSG_TYPE_ERROR 6
+
+#define ACTOR_MSG_TAG_DONTCOPY 0x10000
+#define ACTOR_MSG_TAG_ALLOCSESSION 0x20000
+#define ACTOR_MSG_TAG_NEEDRESPONSE 0x40000
+
 typedef int (*actor_cb)(struct actor_context* context,
                         void* ud,
                         int type,

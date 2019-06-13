@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include "actor_common.h"
 #include "actor_server.h"
+#include "actor_timer.h"
 
 struct actor_context;
 int print_cb(struct actor_context* context,
@@ -12,7 +13,10 @@ int print_cb(struct actor_context* context,
              void* source,
              const void* msg,
              int sz) {
-  printf("ctx %p name[%s]\n", context, actor_context_name(context));
+  unsigned long long ms = 0;
+  ACTOR_GET_TICK(&ms);
+  printf("ctx %p name[%s] time[%lld] ===>\n", context,
+         actor_context_name(context), ms % 100000);
   printf("type[%X] session[%d] source[%p] msg[%s]\n", type, session, source,
          (char*)msg);
   usleep(100 * 1000);
@@ -26,18 +30,30 @@ int main() {
   actor_context_callback(ctx1, print_cb, NULL);
   actor_context_callback(ctx2, print_cb, NULL);
   actor_context_callback(ctx3, print_cb, NULL);
+  usleep(100 * 1000);
+  actor_timer_add(ctx1, 1, 1000, ACTOR_TIMER_FLAG_PERIOD);
+  actor_timer_add(ctx2, 2, 2000, ACTOR_TIMER_FLAG_PERIOD);
+  actor_timer_add(ctx3, 3, 3000, ACTOR_TIMER_FLAG_PERIOD);
 
-  actor_context_send(ctx2, ctx2, 0, 0, "hello1", 5);
-  actor_context_send(ctx1, ctx1, 0, 0, "hello2", 5);
-  actor_context_send(ctx1, ctx2, 0, 0, "hello3", 5);
-  actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
-  actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
-  sleep(1);
-  for (int i = 0; i < 10; i++) {
-    actor_context_send(ctx1, ctx1, 0, i, "hello11", 7);
-    actor_context_send(ctx1, ctx2, 0, i, "hello22", 7);
-    actor_context_send(ctx1, ctx3, 0, i, "hello33", 7);
-  }
+  actor_timer_add(ctx1, 4, 1000, 0);
+  actor_timer_add(ctx2, 5, 1000, 0);
+  actor_timer_add(ctx3, 6, 1000, 0);
+
+  actor_timer_add(ctx1, 7, 0, 0);
+  actor_timer_add(ctx2, 8, 0, 0);
+  actor_timer_add(ctx3, 9, 0, 0);
+
+  // actor_context_send(ctx2, ctx2, 0, 0, "hello1", 5);
+  // actor_context_send(ctx1, ctx1, 0, 0, "hello2", 5);
+  // actor_context_send(ctx1, ctx2, 0, 0, "hello3", 5);
+  // actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
+  // actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
+  // sleep(1);
+  // for (int i = 0; i < 10; i++) {
+  //   actor_context_send(ctx1, ctx1, 0, i, "hello11", 7);
+  //   actor_context_send(ctx1, ctx2, 0, i, "hello22", 7);
+  //   actor_context_send(ctx1, ctx3, 0, i, "hello33", 7);
+  // }
 
   sleep(10);
   printf("end\n");

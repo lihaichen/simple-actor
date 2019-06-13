@@ -2,6 +2,7 @@
 #include "actor_common.h"
 #include "actor_list.h"
 #include "actor_spinlock.h"
+#include "actor_server.h"
 
 #define DEFAULT_QUEUE_SIZE 10
 #define MAX_GLOBAL_MQ 100
