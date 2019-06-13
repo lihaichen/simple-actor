@@ -9,7 +9,7 @@ struct monitor {
   int count;
   int sleep;
   pthread_cond_t cond;
-  pthread_mutex_t mutex;
+  ACTOR_LOCK_TYPE mutex;
 };
 
 static struct monitor M;
@@ -26,18 +26,15 @@ void actor_thread_wakeup(void) {
 static void* thread_worker(void* p) {
   struct actor_message_queue* q = NULL;
   while (1) {
-    ACTOR_PRINT("thread %ld\n", (long)p);
+    // ACTOR_PRINT("thread %ld\n", (long)p);
     q = actor_context_message_dispatch(q, 1);
     if (q == NULL) {
-      // ACTOR_ENTER_LOCK(&mutex);
-      // sleep(1);
-      // ACTOR_EXIT_LOCK(&mutex);
-      if (pthread_mutex_lock(&M.mutex) == 0) {
+      if (ACTOR_ENTER_LOCK(&M.mutex) == 0) {
         M.sleep++;
         // ACTOR_PRINT("sleep count %d\n", M.sleep);
         pthread_cond_wait(&M.cond, &M.mutex);
         M.sleep--;
-        pthread_mutex_unlock(&M.mutex);
+        ACTOR_EXIT_LOCK(&M.mutex);
       }
     }
   }
@@ -51,15 +48,14 @@ void actor_start(int thread_count) {
   pthread_cond_init(&M.cond, NULL);
   M.count = thread_count;
   M.sleep = 0;
-  // ACTOR_INIT_LOCK(&mutex);
   actor_globalmq_init();
   actor_server_init();
   actor_timer_init();
   for (int i = 0; i < thread_count; i++) {
     pthread_create(&pid[i], NULL, thread_worker, (void*)(long)i);
   }
-  // for (int i = 0; i < thread_count; i++) {
-  //   pthread_join(pid[i], NULL);
-  // }
-  ACTOR_PRINT("simple actor start5\n");
+}
+
+void actor_stop() {
+  return;
 }

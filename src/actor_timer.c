@@ -43,6 +43,7 @@ void actor_timer_init(void) {
 }
 
 void actor_timer_deinit(void) {
+  pthread_cancel(G_NODE.pid);
   aheap_destroy(&G_NODE.heap);
   ACTOR_SME_DESTROY(&G_NODE.sem);
   ACTOR_SPIN_DESTROY(&G_NODE);
@@ -129,7 +130,8 @@ static int insert_timer(actor_timer_t* timer) {
   // wake up timer thread
   int sem_value = 0;
   ACTOR_SEM_GET_VALUE(&G_NODE.sem, &sem_value);
-  if (sem_value < 0) {
+  printf("wake up timer %d\n", sem_value);
+  if (sem_value <= 0) {
     ACTOR_SEM_POST(&G_NODE.sem);
     printf("wait sem value ===%d\n", sem_value);
   }
@@ -161,8 +163,8 @@ static void* thread_worker(void* p) {
       timer = aheap_getFist(&G_NODE.heap);
       if (timer == NULL)
         break;
-      // not timeout
       diff = timer->expire - current_ms;
+      // not timeout
       if (!IS_TIMEOUT(current_ms, timer->expire))
         break;
       ACTOR_SPIN_LOCK(&G_NODE);
@@ -176,15 +178,19 @@ static void* thread_worker(void* p) {
         ACTOR_FREE(timer);
       }
     }
+
     ACTOR_GET_TICK(&current_ms);
+    printf("s---->%lld diff[%d]\n", current_ms%10000, diff);
     if (diff < 0) {
-      current_ms += 1000;  // delay 1 second
+      current_ms += 1000 * 10;  // delay 1 second
     } else {
       current_ms += diff;
     }
     ts.tv_nsec = (current_ms % 1000) * 1000 * 1000;
     ts.tv_sec = current_ms / 1000;
     ACTOR_SEM_WAIT_TIME(&G_NODE.sem, &ts);
+    ACTOR_GET_TICK(&current_ms);
+    printf("e---->%lld\n", current_ms%10000);
   }
   return NULL;
 }
