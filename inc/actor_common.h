@@ -5,8 +5,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
-
-#include "actor_def.h"
+#include "actor_heap.h"
+#include "actor_list.h"
+#include "actor_mq.h"
+#include "actor_server.h"
+#include "actor_timer.h"
 
 #define acontainer_of(node, type, member) \
   ((type*)((char*)(node) - (unsigned long)(&((type*)0)->member)))

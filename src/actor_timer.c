@@ -1,9 +1,7 @@
-#include "actor_timer.h"
 #include <pthread.h>
 #include <unistd.h>
 #include "actor_common.h"
-#include "actor_heap.h"
-#include "actor_server.h"
+#include "actor_def.h"
 #include "actor_spinlock.h"
 
 #define IS_TIMEOUT(current, timeout)                                   \

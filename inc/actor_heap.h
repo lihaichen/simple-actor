@@ -19,7 +19,7 @@ struct aheap {
   compare compare;
 };
 
-inline struct aheap* aheap_create(int cap, compare c) {
+static inline struct aheap* aheap_create(int cap, compare c) {
   struct aheap* heap = (struct aheap*)ACTOR_MALLOC(sizeof(*heap));
   if (heap == NULL)
     return heap;
@@ -38,12 +38,12 @@ inline struct aheap* aheap_create(int cap, compare c) {
   return heap;
 }
 
-inline void aheap_free(struct aheap* heap) {
+static inline void aheap_free(struct aheap* heap) {
   ACTOR_FREE(heap->pq);
   ACTOR_FREE(heap);
 }
 
-inline int aheap_init(struct aheap* heap, int cap, compare c) {
+static inline int aheap_init(struct aheap* heap, int cap, compare c) {
   heap->cap = cap;
   heap->len = 0;
   heap->compare = c;
@@ -57,25 +57,26 @@ inline int aheap_init(struct aheap* heap, int cap, compare c) {
   }
   return 0;
 }
-inline int aheap_destroy(struct aheap* heap) {
+
+static inline int aheap_destroy(struct aheap* heap) {
   ACTOR_FREE(heap->pq);
   return 0;
 }
 
-inline void aexch(struct aheap* heap, int i, int j) {
+static inline void aexch(struct aheap* heap, int i, int j) {
   void* tmp = heap->pq[i];
   heap->pq[i] = heap->pq[j];
   heap->pq[j] = tmp;
 }
 
-inline void aswim(struct aheap* heap, int k) {
+static inline void aswim(struct aheap* heap, int k) {
   while ((k > 1) && (heap->compare(heap->pq[k / 2], heap->pq[k]) < 0)) {
     aexch(heap, k / 2, k);
     k /= 2;
   }
 }
 
-inline void asink(struct aheap* heap, int k) {
+static inline void asink(struct aheap* heap, int k) {
   while (2 * k <= heap->len) {
     int j = 2 * k;
     if (j < heap->len && heap->compare(heap->pq[j], heap->pq[j + 1]) < 0)
@@ -87,19 +88,19 @@ inline void asink(struct aheap* heap, int k) {
   }
 }
 
-inline int aheap_isEmpty(struct aheap* heap) {
+static inline int aheap_isEmpty(struct aheap* heap) {
   return heap->len == 0;
 }
 
-inline int aheap_size(struct aheap* heap) {
+static inline int aheap_size(struct aheap* heap) {
   return heap->cap;
 }
 
-inline int aheap_len(struct aheap* heap) {
+static inline int aheap_len(struct aheap* heap) {
   return heap->len;
 }
 
-inline int aheap_insert(struct aheap* heap, void* v) {
+static inline int aheap_insert(struct aheap* heap, void* v) {
   if (heap->len >= heap->cap)
     return -1;
   heap->pq[++heap->len] = v;
@@ -107,18 +108,18 @@ inline int aheap_insert(struct aheap* heap, void* v) {
   return 0;
 }
 
-inline void* aheap_get(struct aheap* heap, int index) {
+static inline void* aheap_get(struct aheap* heap, int index) {
   if (index < 1 || index > heap->len) {
     return NULL;
   }
   return heap->pq[index];
 }
 
-inline void* aheap_getFist(struct aheap* heap) {
+static inline void* aheap_getFist(struct aheap* heap) {
   return heap->pq[1];
 }
 
-inline void* aheap_delFist(struct aheap* heap) {
+static inline void* aheap_delFist(struct aheap* heap) {
   void* tmp = heap->pq[1];
   aexch(heap, 1, heap->len--);
   heap->pq[heap->len + 1] = NULL;
@@ -126,7 +127,7 @@ inline void* aheap_delFist(struct aheap* heap) {
   return tmp;
 }
 
-inline void* aheap_delete(struct aheap* heap, int k) {
+static inline void* aheap_delete(struct aheap* heap, int k) {
   if (k < 1 || k > heap->len) {
     return NULL;
   }
@@ -138,7 +139,7 @@ inline void* aheap_delete(struct aheap* heap, int k) {
   return tmp;
 }
 
-inline void aheap_foreach(struct aheap* heap, map func) {
+static inline void aheap_foreach(struct aheap* heap, map func) {
   for (int i = 1; i <= heap->len; i++) {
     if (func(i, heap->pq[i]) != 0)
       break;

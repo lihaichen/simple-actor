@@ -1,7 +1,5 @@
-#include "actor_mq.h"
 #include "actor_common.h"
-#include "actor_list.h"
-#include "actor_server.h"
+#include "actor_def.h"
 #include "actor_spinlock.h"
 
 #define DEFAULT_QUEUE_SIZE 10

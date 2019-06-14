@@ -1,9 +1,8 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "actor_common.h"
-#include "actor_mq.h"
-#include "actor_server.h"
-#include "actor_timer.h"
+#include "actor_def.h"
+#include "actor_spinlock.h"
 
 struct monitor {
   int count;
