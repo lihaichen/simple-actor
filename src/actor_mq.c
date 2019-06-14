@@ -111,7 +111,7 @@ static int expand_queue(struct actor_message_queue* mq) {
       ACTOR_MALLOC(sizeof(struct actor_message) * (mq->cap + 10));
   if (new_queue == NULL)
     return -1;
-  ACTOR_SPIN_LOCK(mq);
+  // ACTOR_SPIN_LOCK(mq);
   for (int i = 0; i < mq->cap; i++) {
     new_queue[i] = mq->queue[(mq->head + i) % mq->cap];
   }
@@ -120,7 +120,7 @@ static int expand_queue(struct actor_message_queue* mq) {
   mq->cap += 10;
   ACTOR_FREE(mq->queue);
   mq->queue = new_queue;
-  ACTOR_SPIN_UNLOCK(mq);
+  // ACTOR_SPIN_UNLOCK(mq);
   return 0;
 }
 
