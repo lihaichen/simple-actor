@@ -57,4 +57,5 @@ int main() {
 
   sleep(10);
   printf("end\n");
+  actor_stop();
 }

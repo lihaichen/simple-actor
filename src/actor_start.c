@@ -10,6 +10,7 @@ struct monitor {
   int sleep;
   pthread_cond_t cond;
   ACTOR_LOCK_TYPE mutex;
+  pthread_t* pid;
 };
 
 static struct monitor M;
@@ -42,9 +43,9 @@ static void* thread_worker(void* p) {
 }
 
 void actor_start(int thread_count) {
-  pthread_t pid[thread_count];
-  ACTOR_PRINT("simple actor start...\n");
-  pthread_mutex_init(&M.mutex, NULL);
+  M.pid = ACTOR_MALLOC(sizeof(*M.pid) * thread_count);
+  ACTOR_ASSERT(M.pid);
+  ACTOR_INIT_LOCK(&M.mutex);
   pthread_cond_init(&M.cond, NULL);
   M.count = thread_count;
   M.sleep = 0;
@@ -52,10 +53,21 @@ void actor_start(int thread_count) {
   actor_server_init();
   actor_timer_init();
   for (int i = 0; i < thread_count; i++) {
-    pthread_create(&pid[i], NULL, thread_worker, (void*)(long)i);
+    pthread_create(&M.pid[i], NULL, thread_worker, (void*)(long)i);
   }
+  ACTOR_PRINT("simple actor start...\n");
 }
 
 void actor_stop() {
+  for (int i = 0; i < M.count; i++) {
+    pthread_cancel(M.pid[i]);
+  }
+  actor_timer_deinit();
+  actor_server_deinit();
+  actor_globalmq_deinit();
+  pthread_cond_destroy(&M.cond);
+  ACTOR_DEL_LOCK(&M.mutex);
+  ACTOR_FREE(M.pid);
+  ACTOR_PRINT("simple actor end...\n");
   return;
 }

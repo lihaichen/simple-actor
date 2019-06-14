@@ -1,8 +1,8 @@
 #include "actor_mq.h"
 #include "actor_common.h"
 #include "actor_list.h"
-#include "actor_spinlock.h"
 #include "actor_server.h"
+#include "actor_spinlock.h"
 
 #define DEFAULT_QUEUE_SIZE 10
 #define MAX_GLOBAL_MQ 100
@@ -13,7 +13,6 @@ struct actor_message_queue {
   int head;
   int tail;
   int release;
-  int in_global;
   struct actor_message* queue;
   alist_node_t list;
   struct actor_context* context;
@@ -35,7 +34,6 @@ void actor_globalmq_init(void) {
 }
 
 void actor_globalmq_deinit(void) {
-  // free global mq
   ACTOR_SPIN_DESTROY(Q);
   ACTOR_FREE(Q);
   Q = NULL;
@@ -55,8 +53,8 @@ void actor_globalmq_rm(struct actor_message_queue* mq) {
 
 struct actor_message_queue* actor_globalmq_pop() {
   struct actor_global_queue* q = Q;
-  ACTOR_SPIN_LOCK(q);
   struct actor_message_queue* mq = NULL;
+  ACTOR_SPIN_LOCK(q);
   if (!alist_isempty(&Q->list)) {
     mq = acontainer_of(Q->list.next, struct actor_message_queue, list);
     alist_remove(&mq->list);
@@ -72,7 +70,6 @@ struct actor_message_queue* actor_mq_create(struct actor_context* context) {
   q->tail = 0;
   q->context = context;
   ACTOR_SPIN_INIT(q);
-  q->in_global = 0;
   q->queue = ACTOR_MALLOC(sizeof(struct actor_message) * q->cap);
   alist_init(&q->list);
   return q;
@@ -95,7 +92,7 @@ struct actor_context* actor_mq_get_context(struct actor_message_queue* mq) {
 
 int actor_mq_pop(struct actor_message_queue* mq,
                  struct actor_message* message) {
-  int ret = 1;
+  int ret = -1;
   ACTOR_SPIN_LOCK(mq);
   if (mq->head != mq->tail) {
     *message = mq->queue[mq->head++];
@@ -103,9 +100,6 @@ int actor_mq_pop(struct actor_message_queue* mq,
     // ++mq->head %= mq->cap;
     if (mq->head >= mq->cap)
       mq->head = 0;
-  }
-  if (ret) {
-    mq->in_global = 0;
   }
   ACTOR_SPIN_UNLOCK(mq);
   return ret;
@@ -119,15 +113,16 @@ static int expand_queue(struct actor_message_queue* mq) {
       ACTOR_MALLOC(sizeof(struct actor_message) * (mq->cap + 10));
   if (new_queue == NULL)
     return -1;
+  ACTOR_SPIN_LOCK(mq);
   for (int i = 0; i < mq->cap; i++) {
     new_queue[i] = mq->queue[(mq->head + i) % mq->cap];
   }
   mq->head = 0;
   mq->tail = mq->cap;
   mq->cap += 10;
-
   ACTOR_FREE(mq->queue);
   mq->queue = new_queue;
+  ACTOR_SPIN_UNLOCK(mq);
   return 0;
 }
 
@@ -152,9 +147,7 @@ void actor_mq_push(struct actor_message_queue* mq,
       }
     }
   }
-
-  if (mq->in_global == 0) {
-    mq->in_global = 1;
+  if (alist_isempty(&mq->list)) {
     actor_globalmq_push(mq);
   }
   ACTOR_SPIN_UNLOCK(mq);
@@ -176,9 +169,5 @@ int actor_mq_length(struct actor_message_queue* mq) {
 }
 
 int actor_mq_cap(struct actor_message_queue* mq) {
-  int cap;
-  ACTOR_SPIN_LOCK(mq);
-  cap = mq->cap;
-  ACTOR_SPIN_UNLOCK(mq);
-  return cap;
+  return mq->cap;
 }

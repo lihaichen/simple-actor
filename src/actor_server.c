@@ -49,6 +49,21 @@ int actor_server_init() {
   return 0;
 }
 
+void actor_server_deinit() {
+  alist_node_t* list = &G_NODE.list;
+  struct actor_context* res = NULL;
+  struct alist_node* node = list->next;
+  do {
+    struct alist_node* next = node->next;
+    res = acontainer_of(node, struct actor_context, list);
+    actor_context_release(res);
+    node = next;
+  } while (node != list);
+  G_NODE.total = 0;
+  ACTOR_SPIN_DESTROY(&G_NODE);
+  return;
+}
+
 void actor_context_grab(struct actor_context* ctx) {
   ATOM_INC(&ctx->ref);
 }
@@ -64,8 +79,10 @@ struct actor_context* actor_context_release(struct actor_context* ctx) {
         break;
       actor_destroy_message(&msg);
     }
+    ACTOR_SPIN_LOCK(&G_NODE);
     alist_remove(&ctx->list);
-    ACTOR_FREE(ctx->queue);
+    ACTOR_SPIN_UNLOCK(&G_NODE);
+    actor_mq_release(ctx->queue);
     ACTOR_FREE(ctx);
     context_dec();
     return NULL;
@@ -108,11 +125,14 @@ char* actor_context_name(struct actor_context* context) {
 struct actor_context* actor_context_find(const char* name) {
   alist_node_t* list = &G_NODE.list;
   struct actor_context* res = NULL;
+  ACTOR_SPIN_LOCK(&G_NODE);
   for (struct alist_node* node = list->next; node != list; node = node->next) {
     res = acontainer_of(node, struct actor_context, list);
-    if (strncmp(res->name, name, ACTOR_NAME_SIZE) == 0)
-      return res;
+    if (strncmp(res->name, name, ACTOR_NAME_SIZE) == 0) {
+      break;
+    }
   }
+  ACTOR_SPIN_UNLOCK(&G_NODE);
   return NULL;
 }
 
@@ -125,11 +145,8 @@ struct actor_message_queue* actor_context_message_dispatch(
       return mq;
   }
   struct actor_context* ctx = actor_mq_get_context(mq);
-  int len = actor_mq_length(mq);
-  len = len > weight ? weight : len;
-  len = len < 1 ? 1 : len;
   struct actor_message msg;
-  for (int i = 0; i < len; i++) {
+  for (int i = 0; i < weight; i++) {
     if (actor_mq_pop(mq, &msg)) {
       return actor_globalmq_pop();
     }
@@ -154,7 +171,6 @@ int actor_context_send(void* source,
                        void* data,
                        int sz) {
   struct actor_message msg;
-  // ACTOR_ASSERT(source != NULL);
   ACTOR_ASSERT(destination != NULL);
   msg.source = source;
   msg.session = session;
@@ -162,7 +178,7 @@ int actor_context_send(void* source,
   msg.sz = sz;
   msg.type = type;
   if ((type & ACTOR_MSG_TAG_DONTCOPY) == ACTOR_MSG_TAG_DONTCOPY ||
-          data == NULL || sz == 0) {
+      data == NULL || sz == 0) {
     msg.data = data;
   } else {
     msg.data = ACTOR_MALLOC(sz + 1);

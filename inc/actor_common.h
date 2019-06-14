@@ -12,7 +12,7 @@ extern "C" {
   ((type*)((char*)(node) - (unsigned long)(&((type*)0)->member)))
 
 void actor_start(int thread_count);
-
+void actor_stop(void);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
