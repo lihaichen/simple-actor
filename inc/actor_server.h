@@ -34,8 +34,9 @@ extern int actor_server_init(void);
 extern void actor_server_deinit(void);
 extern void actor_context_grab(struct actor_context* ctx);
 extern struct actor_context* actor_context_release(struct actor_context* ctx);
-extern struct actor_context* actor_context_new(const char* name,
-                                               const char* param);
+struct actor_context* actor_context_new(const char* name,
+                                        actor_cb cb,
+                                        void* ud);
 extern struct actor_context* actor_context_find(const char* name);
 
 extern void actor_context_callback(struct actor_context* context,

@@ -13,6 +13,10 @@ int print_cb(struct actor_context* context,
              void* source,
              const void* msg,
              int sz) {
+  if (type == ACTOR_MSG_TYPE_INIT) {
+    printf("[%s] init...\n", actor_context_name(context));
+    return 0;
+  }
   unsigned long long ms = 0;
   ACTOR_GET_TICK(&ms);
   printf("ctx %p name[%s] time[%lld] ===>\n", context,
@@ -24,12 +28,12 @@ int print_cb(struct actor_context* context,
 }
 int main() {
   actor_start(3);
-  struct actor_context* ctx1 = actor_context_new("actor1", NULL);
-  struct actor_context* ctx2 = actor_context_new("actor2", NULL);
-  struct actor_context* ctx3 = actor_context_new("actor3", NULL);
-  actor_context_callback(ctx1, print_cb, NULL);
-  actor_context_callback(ctx2, print_cb, NULL);
-  actor_context_callback(ctx3, print_cb, NULL);
+  struct actor_context* ctx1 = actor_context_new("actor1", print_cb, NULL);
+  struct actor_context* ctx2 = actor_context_new("actor2", print_cb, NULL);
+  struct actor_context* ctx3 = actor_context_new("actor3", print_cb, NULL);
+  //   actor_context_callback(ctx1, print_cb, NULL);
+  //   actor_context_callback(ctx2, print_cb, NULL);
+  //   actor_context_callback(ctx3, print_cb, NULL);
   usleep(100 * 1000);
   actor_timer_add(ctx1, 1, 1000, ACTOR_TIMER_FLAG_PERIOD);
   actor_timer_add(ctx2, 2, 2000, ACTOR_TIMER_FLAG_PERIOD);

@@ -88,7 +88,9 @@ struct actor_context* actor_context_release(struct actor_context* ctx) {
   return ctx;
 }
 
-struct actor_context* actor_context_new(const char* name, const char* param) {
+struct actor_context* actor_context_new(const char* name,
+                                        actor_cb cb,
+                                        void* ud) {
   struct actor_context* ctx = ACTOR_CALLOC(1, sizeof(*ctx));
   ACTOR_ASSERT(ctx != NULL);
   ctx->ref = 2;
@@ -105,7 +107,9 @@ struct actor_context* actor_context_new(const char* name, const char* param) {
   alist_insert_after(&G_NODE.list, &ctx->list);
   ACTOR_SPIN_UNLOCK(&G_NODE);
   context_inc();
+  actor_context_callback(ctx, cb, ud);
   actor_context_release(ctx);
+  actor_context_send(ctx, ctx, ACTOR_MSG_TYPE_INIT, 0, NULL, 0);
   return ctx;
 }
 

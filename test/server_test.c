@@ -6,7 +6,7 @@
 Test(actor_server, add) {
 #define ADD_SIZE 30
   actor_server_init();
-  struct actor_context* test1 = actor_context_new("test1", NULL);
+  struct actor_context* test1 = actor_context_new("test1", NULL, NULL);
   cr_assert(test1 != NULL, "actor_context_new null");
   cr_assert(actor_context_total() == 1, "context_total error\n");
   actor_context_release(test1);
@@ -16,7 +16,7 @@ Test(actor_server, add) {
   for (int i = 0; i < ADD_SIZE; i++) {
     memset(buf, 0, sizeof(buf));
     snprintf(buf, 15, "test%d", i);
-    ctx[i] = actor_context_new(buf, NULL);
+    ctx[i] = actor_context_new(buf, NULL, NULL);
     cr_assert(ctx[i] != NULL, "actor_context_new null");
   }
   cr_assert(actor_context_total() == ADD_SIZE, "context_total error\n");
