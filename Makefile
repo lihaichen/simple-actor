@@ -42,7 +42,7 @@ lib: $(SLIB) $(DLIB)
 	$(MKDIR) $(BUILD)
 	
 all: lib test
-	
+	@(MKDIR) build
 
 clean:
 	$(RM) $(OBJS) $(TEST_OBJS)  $(DLIB) $(SLIB) $(BUILD)/test $(BUILD)/unit

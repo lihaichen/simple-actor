@@ -39,7 +39,10 @@ void actor_globalmq_deinit(void) {
 
 void actor_globalmq_push(struct actor_message_queue* mq) {
   ACTOR_SPIN_LOCK(Q);
-  alist_insert_before(&Q->list, &mq->list);
+  if (alist_isempty(&mq->list)) {
+    alist_insert_before(&Q->list, &mq->list);
+  }
+
   ACTOR_SPIN_UNLOCK(Q);
 }
 
@@ -50,14 +53,13 @@ void actor_globalmq_rm(struct actor_message_queue* mq) {
 }
 
 struct actor_message_queue* actor_globalmq_pop() {
-  struct actor_global_queue* q = Q;
   struct actor_message_queue* mq = NULL;
-  ACTOR_SPIN_LOCK(q);
+  ACTOR_SPIN_LOCK(Q);
   if (!alist_isempty(&Q->list)) {
     mq = acontainer_of(Q->list.next, struct actor_message_queue, list);
     alist_remove(&mq->list);
   }
-  ACTOR_SPIN_UNLOCK(q);
+  ACTOR_SPIN_UNLOCK(Q);
   return mq;
 }
 
@@ -145,9 +147,7 @@ void actor_mq_push(struct actor_message_queue* mq,
       }
     }
   }
-  if (alist_isempty(&mq->list)) {
-    actor_globalmq_push(mq);
-  }
+  actor_globalmq_push(mq);
   ACTOR_SPIN_UNLOCK(mq);
 }
 

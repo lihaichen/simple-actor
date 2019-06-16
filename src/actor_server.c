@@ -69,6 +69,7 @@ void actor_context_grab(struct actor_context* ctx) {
 struct actor_context* actor_context_release(struct actor_context* ctx) {
   ATOM_DEC(&ctx->ref);
   if (ctx->ref == 0) {
+    ACTOR_PRINT("actor[%s] release\n", ctx->name);
     // 消息队列的消息处理掉
     while (1) {
       struct actor_message msg;

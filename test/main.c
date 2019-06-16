@@ -53,13 +53,21 @@ int main() {
   // actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
   // actor_context_send(ctx1, ctx3, 0, 0, "hello3", 5);
   // sleep(1);
+  char buf[16];
   for (int i = 10; i < 20; i++) {
-    actor_context_send(ctx1, ctx1, 0, i, "hello11", 7);
-    actor_context_send(ctx1, ctx2, 0, i, "hello22", 7);
-    actor_context_send(ctx1, ctx3, 0, i, "hello33", 7);
+    memset(buf, 0, sizeof(buf));
+    sprintf(buf, "hello actor1 %02d", i);
+    actor_context_send(ctx1, ctx1, 0, i, buf, strlen(buf));
+    memset(buf, 0, sizeof(buf));
+    sprintf(buf, "hello actor2 %02d", i);
+    actor_context_send(ctx1, ctx2, 0, i, buf, strlen(buf));
+    memset(buf, 0, sizeof(buf));
+    sprintf(buf, "hello actor3 %02d", i);
+    actor_context_send(ctx1, ctx3, 0, i, buf, strlen(buf));
   }
 
   sleep(10);
+
   printf("end\n");
   actor_stop();
 }
