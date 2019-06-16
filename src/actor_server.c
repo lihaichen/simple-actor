@@ -136,7 +136,7 @@ struct actor_context* actor_context_find(const char* name) {
     }
   }
   ACTOR_SPIN_UNLOCK(&G_NODE);
-  return NULL;
+  return res;
 }
 
 struct actor_message_queue* actor_context_message_dispatch(
