@@ -51,6 +51,7 @@ void actor_start(int thread_count) {
   actor_globalmq_init();
   actor_server_init();
   actor_timer_init();
+  actor_io_init();
   for (int i = 0; i < thread_count; i++) {
     pthread_create(&M.pid[i], NULL, thread_worker, (void*)(long)i);
   }
@@ -61,6 +62,7 @@ void actor_stop() {
   for (int i = 0; i < M.count; i++) {
     pthread_cancel(M.pid[i]);
   }
+  actor_io_deinit();
   actor_timer_deinit();
   actor_server_deinit();
   actor_globalmq_deinit();

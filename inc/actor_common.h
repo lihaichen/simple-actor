@@ -6,6 +6,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include "actor_heap.h"
+#include "actor_io.h"
 #include "actor_list.h"
 #include "actor_mq.h"
 #include "actor_server.h"

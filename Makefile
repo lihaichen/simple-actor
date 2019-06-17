@@ -3,7 +3,8 @@ BUILD ?= build
 C_SOURCES += src/actor_mq.c \
 src/actor_server.c \
 src/actor_start.c \
-src/actor_timer.c 
+src/actor_timer.c \
+src/actor_io.c 
 
 TEST_C_SOURCES += test/main.c
 
