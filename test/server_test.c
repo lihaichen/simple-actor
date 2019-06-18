@@ -41,4 +41,5 @@ Test(actor_server, add) {
     res = actor_context_find(buf);
     cr_assert(res == NULL, "actor_context_find null");
   }
+  actor_server_deinit();
 }

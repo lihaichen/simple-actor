@@ -1,47 +1,63 @@
 
+#include "actor_io.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <sys/epoll.h>
 #include <unistd.h>
 #include "actor_common.h"
 #include "actor_def.h"
+#include "actor_spinlock.h"
 
 #define MAX_EVENTS 2
 
 static void* thread_io_worker(void* arg);
-static void process_io(actor_io_t* io, int event);
+static int process_io(actor_io_t* io, int event);
 
 static int epoll_fd;
 pthread_t pid;
 
-int actor_io_add(int fd, actor_io_t* io) {
+struct actor_io_node {
+  alist_node_t list;
+  int fd_pipe;
+  struct actor_spinlock lock;
+};
+
+static struct actor_io_node G_NODE;
+
+int actor_io_add(actor_io_t* io) {
   struct epoll_event ev;
   ACTOR_ASSERT(io != NULL);
-  io->recv_r = io->recv_w = io->send_r = io->send_w = 0;
-  //   io->recv_buf = ACTOR_MALLOC(io->recv_buf_len);
-  //   ACTOR_ASSERT(io->recv_buf != NULL);
-  //   io->send_buf = ACTOR_MALLOC(io->send_buf_len);
-  //   ACTOR_ASSERT(io->send_buf != NULL);
+  ACTOR_SPIN_LOCK(&G_NODE);
+  alist_insert_after(&G_NODE.list, &io->list);
+  ACTOR_SPIN_UNLOCK(&G_NODE);
   ev.events = EPOLLIN;
   ev.data.ptr = io;
-  return epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+  int flags = fcntl(io->fd, F_GETFL, 0);
+  fcntl(io->fd, F_SETFL, flags);
+  return epoll_ctl(epoll_fd, EPOLL_CTL_ADD, io->fd, &ev);
 }
 
-int actor_io_del(int fd) {
-  return epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+int actor_io_del(actor_io_t* io) {
+  ACTOR_SPIN_LOCK(&G_NODE);
+  alist_remove(&io->list);
+  ACTOR_SPIN_UNLOCK(&G_NODE);
+  return epoll_ctl(epoll_fd, EPOLL_CTL_DEL, io->fd, NULL);
 }
 
-int actor_io_write(int fd, void* ud, int enable) {
+int actor_io_write(actor_io_t* io, int enable) {
   struct epoll_event ev;
   ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
-  ev.data.ptr = ud;
-  return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+  ev.data.ptr = io;
+  return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, io->fd, &ev);
 }
 
 void actor_io_init(void) {
-  epoll_fd = epoll_create(0);
+  ACTOR_SPIN_INIT(&G_NODE);
+  alist_init(&G_NODE.list);
+  epoll_fd = epoll_create(1);
   if (epoll_fd < 0) {
-    ACTOR_PRINT("epoll create error[%d]\n", errno);
+    ACTOR_PRINT("epoll create %s\n", strerror(errno));
     return;
   }
   // create io thread
@@ -54,29 +70,54 @@ void actor_io_deinit(void) {
   if (epoll_fd > 0) {
     close(epoll_fd);
   }
+  ACTOR_SPIN_DESTROY(&G_NODE);
   return;
 }
 
 static void* thread_io_worker(void* arg) {
   struct epoll_event events[MAX_EVENTS];
-  int wait_time = -1, nfds = 0;
+  int wait_time = 100, nfds = 0;
   while (1) {
     nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, wait_time);
     if (nfds == -1) {
       ACTOR_MSLEEP(100);
       continue;
     }
+    if (nfds == 0) {
+      // timeout
+      ACTOR_SPIN_LOCK(&G_NODE);
+      alist_node_t* list = &G_NODE.list;
+      actor_io_t* io = NULL;
+      actor_tick_t tick;
+      ACTOR_GET_TICK(&tick);
+      for (struct alist_node* node = list->next; node != list;
+           node = node->next) {
+        io = acontainer_of(node, struct actor_io, list);
+        if (io->type == SERIAL && io->recv_r != io->recv_w) {
+          if (tick >= io->time + io->timeout && io->time != 0) {
+            io->time = 0;
+            ACTOR_PRINT("timeout len[%d]\n", io->recv_w - io->recv_r);
+          }
+        }
+      }
+      ACTOR_SPIN_UNLOCK(&G_NODE);
+      continue;
+    }
     for (int i = 0; i < nfds; i++) {
-      ACTOR_PRINT("ready fd[%d] event[%X]\n", events[i].data.fd,
-                  events[i].events);
-      process_io((actor_io_t*)events[i].data.ptr, events[i].events);
+      actor_io_t* io = (actor_io_t*)events[i].data.ptr;
+      ACTOR_PRINT("ready fd[%d] event[%X]\n", io->fd, events[i].events);
+      wait_time = process_io(io, events[i].events);
     }
     ACTOR_MSLEEP(5);
   }
   return NULL;
 }
 
-static void process_io(actor_io_t* io, int event) {
+static int process_io(actor_io_t* io, int event) {
+  int timeout = -1;
+  char buf[128];
+
+  int tmp = 0;
   switch (io->type) {
     case TCP_SERVICE:
       break;
@@ -84,10 +125,27 @@ static void process_io(actor_io_t* io, int event) {
       break;
     case UDP:
       break;
-    case SERIAL:
-      break;
+    case SERIAL: {
+      do {
+        memset(buf, 0, sizeof(buf));
+        tmp = read(io->fd, buf, sizeof(buf));
+        if (tmp < 1) {
+          timeout = io->timeout;
+          break;
+        }
+        for (int i = 0; i < tmp; i++) {
+          io->recv_buf[io->recv_w++] = buf[i];
+          if (io->recv_w == io->recv_r) {
+            io->recv_r++;
+            io->recv_r %= io->recv_buf_len;
+          }
+          io->recv_w %= io->send_buf_len;
+        }
+        ACTOR_GET_TICK(&io->time);
+      } while (tmp > 0);
+    } break;
     default:
       break;
   }
-  return 0;
+  return timeout;
 }

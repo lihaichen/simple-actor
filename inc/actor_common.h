@@ -9,6 +9,7 @@ extern "C" {
 #include "actor_io.h"
 #include "actor_list.h"
 #include "actor_mq.h"
+#include "actor_serial.h"
 #include "actor_server.h"
 #include "actor_timer.h"
 
