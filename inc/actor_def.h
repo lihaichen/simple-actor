@@ -4,12 +4,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <sys/time.h>
-#include <semaphore.h>
+#include <time.h>
 
 #define ACTOR_MALLOC(size) malloc(size)
 #define ACTOR_CALLOC(n, size) calloc(n, size)
@@ -20,12 +20,33 @@ extern "C" {
 typedef unsigned long long actor_tick_t;
 #define ACTOR_MAX_TICK 0xFFFFFFFFFFFFFFFF
 
-#define ACTOR_GET_TICK(ms)                                                  \
+#if 1
+
+static inline actor_tick_t ACTOR_GET_TICK(actor_tick_t* ms) {
+  actor_tick_t res = 0;
+#if !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)
+  struct timespec spec;
+  clock_gettime(CLOCK_MONOTONIC, &spec);
+  res = (actor_tick_t)spec.tv_sec * 1000;
+  res += spec.tv_nsec / 1000000;
+#else
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  res = (actor_tick_t)tv.tv_sec * 1000;
+  res += tv.tv_usec / 1000;
+#endif
+  if (ms != NULL)
+    *ms = res;
+  return res;
+}
+#else
+#define ACTOR_GET_TICK(ms)                                                   \
   do {                                                                       \
     struct timespec spec;                                                    \
     clock_gettime(CLOCK_REALTIME, &spec);                                    \
     *ms = (spec.tv_nsec / 1000000 + (unsigned long long)spec.tv_sec * 1000); \
   } while (0)
+#endif
 
 #define ACTOR_PRINT(...) printf(__VA_ARGS__)
 
@@ -46,21 +67,22 @@ typedef unsigned long long actor_tick_t;
 #define ACTOR_SEM_SET_VALUE(sem, value)
 
 #define ACTOR_ASSERT(EX)                                    \
-  do {                                                       \
-    if (!(EX)) {                                             \
+  do {                                                      \
+    if (!(EX)) {                                            \
       ACTOR_PRINT("%s,%s,%d", #EX, __FUNCTION__, __LINE__); \
-    }                                                        \
+    }                                                       \
   } while (0)
 
 #define ATOM_CAS(ptr, oval, nval) __sync_bool_compare_and_swap(ptr, oval, nval)
-#define ATOM_CAS_POINTER(ptr, oval, nval) __sync_bool_compare_and_swap(ptr, oval, nval)
+#define ATOM_CAS_POINTER(ptr, oval, nval) \
+  __sync_bool_compare_and_swap(ptr, oval, nval)
 #define ATOM_INC(ptr) __sync_add_and_fetch(ptr, 1)
 #define ATOM_FINC(ptr) __sync_fetch_and_add(ptr, 1)
 #define ATOM_DEC(ptr) __sync_sub_and_fetch(ptr, 1)
 #define ATOM_FDEC(ptr) __sync_fetch_and_sub(ptr, 1)
-#define ATOM_ADD(ptr,n) __sync_add_and_fetch(ptr, n)
-#define ATOM_SUB(ptr,n) __sync_sub_and_fetch(ptr, n)
-#define ATOM_AND(ptr,n) __sync_and_and_fetch(ptr, n)
+#define ATOM_ADD(ptr, n) __sync_add_and_fetch(ptr, n)
+#define ATOM_SUB(ptr, n) __sync_sub_and_fetch(ptr, n)
+#define ATOM_AND(ptr, n) __sync_and_and_fetch(ptr, n)
 
 #ifdef __cplusplus
 }

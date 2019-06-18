@@ -4,10 +4,6 @@
 #include "actor_def.h"
 #include "actor_spinlock.h"
 
-#define IS_TIMEOUT(current, timeout)                                   \
-  ((actor_tick_t)((actor_tick_t)(current) - (actor_tick_t)(timeout)) < \
-   ACTOR_MAX_TICK / 2)
-
 typedef struct actor_timer {
   int session;
   struct actor_context* context;

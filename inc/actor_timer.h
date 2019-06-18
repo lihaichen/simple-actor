@@ -10,6 +10,10 @@ struct actor_context;
 #define ACTOR_TIMER_FLAG_ONESHOT (0 << 0)
 #define ACTOR_TIMER_FLAG_PERIOD (1 << 1)
 
+#define IS_TIMEOUT(current, timeout)                                   \
+  ((actor_tick_t)((actor_tick_t)(current) - (actor_tick_t)(timeout)) < \
+   ACTOR_MAX_TICK / 2)
+
 void actor_timer_init(void);
 int actor_timer_add(struct actor_context* context,
                     int session,

@@ -13,6 +13,7 @@
 
 static void* thread_io_worker(void* arg);
 static int process_io(actor_io_t* io, int event);
+static int process_io_timeout();
 
 static int epoll_fd;
 pthread_t pid;
@@ -27,6 +28,7 @@ static struct actor_io_node G_NODE;
 
 int actor_io_add(actor_io_t* io) {
   struct epoll_event ev;
+  int res = 0;
   ACTOR_ASSERT(io != NULL);
   ACTOR_SPIN_LOCK(&G_NODE);
   alist_insert_after(&G_NODE.list, &io->list);
@@ -35,7 +37,9 @@ int actor_io_add(actor_io_t* io) {
   ev.data.ptr = io;
   int flags = fcntl(io->fd, F_GETFL, 0);
   fcntl(io->fd, F_SETFL, flags);
-  return epoll_ctl(epoll_fd, EPOLL_CTL_ADD, io->fd, &ev);
+  res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, io->fd, &ev);
+  ACTOR_PRINT("epoll_ctl %s\n", strerror(errno));
+  return res;
 }
 
 int actor_io_del(actor_io_t* io) {
@@ -77,7 +81,9 @@ void actor_io_deinit(void) {
 static void* thread_io_worker(void* arg) {
   struct epoll_event events[MAX_EVENTS];
   int wait_time = 100, nfds = 0;
+  // ACTOR_MSLEEP(5000);
   while (1) {
+    ACTOR_PRINT("wait %d\n", wait_time);
     nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, wait_time);
     if (nfds == -1) {
       ACTOR_MSLEEP(100);
@@ -85,22 +91,7 @@ static void* thread_io_worker(void* arg) {
     }
     if (nfds == 0) {
       // timeout
-      ACTOR_SPIN_LOCK(&G_NODE);
-      alist_node_t* list = &G_NODE.list;
-      actor_io_t* io = NULL;
-      actor_tick_t tick;
-      ACTOR_GET_TICK(&tick);
-      for (struct alist_node* node = list->next; node != list;
-           node = node->next) {
-        io = acontainer_of(node, struct actor_io, list);
-        if (io->type == SERIAL && io->recv_r != io->recv_w) {
-          if (tick >= io->time + io->timeout && io->time != 0) {
-            io->time = 0;
-            ACTOR_PRINT("timeout len[%d]\n", io->recv_w - io->recv_r);
-          }
-        }
-      }
-      ACTOR_SPIN_UNLOCK(&G_NODE);
+      wait_time = process_io_timeout();
       continue;
     }
     for (int i = 0; i < nfds; i++) {
@@ -113,10 +104,31 @@ static void* thread_io_worker(void* arg) {
   return NULL;
 }
 
-static int process_io(actor_io_t* io, int event) {
-  int timeout = -1;
-  char buf[128];
+static int process_io_timeout() {
+  alist_node_t* list = &G_NODE.list;
+  int wait_time = 1000;
+  actor_io_t* io = NULL;
+  actor_tick_t tick = ACTOR_GET_TICK(NULL);
+  ACTOR_SPIN_LOCK(&G_NODE);
+  for (struct alist_node* node = list->next; node != list; node = node->next) {
+    io = acontainer_of(node, struct actor_io, list);
+    if (io->type == SERIAL && io->recv_r != io->recv_w) {
+      if (IS_TIMEOUT(tick, io->time + io->timeout)) {
+        ACTOR_PRINT("timeout len[%d]\n", io->recv_w - io->recv_r);
+        io->recv_r = io->recv_w = 0;
+      } else {
+        int diff = tick - io->time - io->timeout;
+        wait_time = (wait_time < 0) || (wait_time < diff) ? diff : wait_time;
+      }
+    }
+  }
+  ACTOR_SPIN_UNLOCK(&G_NODE);
+  return wait_time;
+}
 
+static int process_io(actor_io_t* io, int event) {
+  int timeout = 100;
+  char buf[128];
   int tmp = 0;
   switch (io->type) {
     case TCP_SERVICE:

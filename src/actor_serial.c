@@ -138,7 +138,7 @@ actor_serial_t* open_serial(char* name,
   ACTOR_ASSERT(io->recv_buf != NULL);
   io->send_buf = ACTOR_MALLOC(io->send_buf_len);
   ACTOR_ASSERT(io->send_buf != NULL);
-  io->fd = open(name, O_RDWR);
+  io->fd = open(name, O_RDWR | O_NONBLOCK);
   if (io->fd < 0) {
     ACTOR_PRINT("open serial error %s %d\n", name, errno);
     ACTOR_FREE(io->send_buf);
