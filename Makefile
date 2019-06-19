@@ -5,7 +5,8 @@ src/actor_server.c \
 src/actor_start.c \
 src/actor_timer.c \
 src/actor_io.c \
-src/actor_serial.c
+src/actor_serial.c \
+src/actor_pipe.c 
 
 TEST_C_SOURCES += test/main.c
 

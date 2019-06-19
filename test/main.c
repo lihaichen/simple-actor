@@ -79,7 +79,7 @@ int main() {
   const char* s = "This is serial test code";
   int len = write(serial->io->fd, s, strlen(s));
   printf("send[%d] len %d\n", serial->io->fd, len);
-  ACTOR_MSLEEP(50);
+  ACTOR_MSLEEP(20);
   len = write(serial->io->fd, s, strlen(s));
   printf("send[%d] len %d\n", serial->io->fd, len);
   // char buf[8];

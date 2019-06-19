@@ -127,24 +127,21 @@ actor_serial_t* open_serial(char* name,
   actor_serial_t* serial = ACTOR_MALLOC(sizeof(*serial));
   ACTOR_ASSERT(serial != NULL);
   memset(serial, 0, sizeof(*serial));
-  serial->io = ACTOR_MALLOC(sizeof(actor_io_t));
-  ACTOR_ASSERT(serial->io != NULL);
-  io = serial->io;
-  io->type = SERIAL;
-  io->recv_buf_len = recv_buf_len;
-  io->send_buf_len = send_buf_len;
+
+  io = create_io(send_buf_len, recv_buf_len);
+  if (io == NULL) {
+    ACTOR_FREE(serial);
+    return NULL;
+  }
   io->timeout = timeout;
   io->context = context;
-  io->recv_r = io->recv_w = io->send_r = io->send_w = 0;
-  io->recv_buf = ACTOR_MALLOC(io->recv_buf_len);
-  ACTOR_ASSERT(io->recv_buf != NULL);
-  io->send_buf = ACTOR_MALLOC(io->send_buf_len);
-  ACTOR_ASSERT(io->send_buf != NULL);
+  io->type = ACTOR_IO_SERIAL;
+  serial->io = io;
+
   io->fd = open(name, O_RDWR);
   if (io->fd < 0) {
     ACTOR_PRINT("open serial error %s %d\n", name, errno);
-    ACTOR_FREE(io->send_buf);
-    ACTOR_FREE(io->recv_buf);
+    delete_io(io);
     ACTOR_FREE(serial);
     return NULL;
   }
@@ -160,8 +157,7 @@ int close_serial(actor_serial_t* serial) {
   if (io->fd > 0) {
     close(io->fd);
   }
-  ACTOR_FREE(io->send_buf);
-  ACTOR_FREE(io->recv_buf);
+  delete_io(io);
   ACTOR_FREE(serial);
   return 0;
 }

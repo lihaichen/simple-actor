@@ -7,7 +7,13 @@ extern "C" {
 #include "actor_def.h"
 #include "actor_list.h"
 
-enum actor_io_type { TCP_SERVICE = 0, TCP_CLIENT, UDP, SERIAL };
+enum actor_io_type {
+  ACTOR_IO_TCP_SERVICE = 0,
+  ACTOR_IO_TCP_CLIENT,
+  ACTOR_IO_UDP,
+  ACTOR_IO_SERIAL,
+  ACTOR_IO_PIPE
+};
 
 typedef struct actor_io {
   unsigned short recv_r;
@@ -34,6 +40,9 @@ extern int actor_io_add(actor_io_t* io);
 
 extern int actor_io_del(actor_io_t* io);
 extern int actor_io_write(actor_io_t* io, int enable);
+
+extern actor_io_t* create_io(int send_buf_len, int recv_buf_len);
+extern int delete_io(actor_io_t* io);
 
 #ifdef __cplusplus
 }
