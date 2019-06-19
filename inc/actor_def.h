@@ -26,7 +26,7 @@ static inline actor_tick_t ACTOR_GET_TICK(actor_tick_t* ms) {
   actor_tick_t res = 0;
 #if !defined(__APPLE__) || defined(AVAILABLE_MAC_OS_X_VERSION_10_12_AND_LATER)
   struct timespec spec;
-  clock_gettime(CLOCK_MONOTONIC, &spec);
+  clock_gettime(CLOCK_REALTIME, &spec);
   res = (actor_tick_t)spec.tv_sec * 1000;
   res += spec.tv_nsec / 1000000;
 #else
