@@ -36,9 +36,12 @@ int actor_io_add(actor_io_t* io) {
   ev.events = EPOLLIN;
   ev.data.ptr = io;
   int flags = fcntl(io->fd, F_GETFL, 0);
+  flags |= O_NONBLOCK;
   fcntl(io->fd, F_SETFL, flags);
   res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, io->fd, &ev);
-  ACTOR_PRINT("epoll_ctl %s\n", strerror(errno));
+  if (res < 0) {
+    ACTOR_PRINT("epoll_ctl add[%d] %s\n", io->fd, strerror(errno));
+  }
   return res;
 }
 
@@ -46,14 +49,23 @@ int actor_io_del(actor_io_t* io) {
   ACTOR_SPIN_LOCK(&G_NODE);
   alist_remove(&io->list);
   ACTOR_SPIN_UNLOCK(&G_NODE);
-  return epoll_ctl(epoll_fd, EPOLL_CTL_DEL, io->fd, NULL);
+  int res = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, io->fd, NULL);
+  if (res < 0) {
+    ACTOR_PRINT("epoll_ctl del[%d] %s\n", io->fd, strerror(errno));
+  }
+  return res;
 }
 
 int actor_io_write(actor_io_t* io, int enable) {
   struct epoll_event ev;
   ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
   ev.data.ptr = io;
-  return epoll_ctl(epoll_fd, EPOLL_CTL_MOD, io->fd, &ev);
+  int res = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, io->fd, &ev);
+  if (res < 0) {
+    ACTOR_PRINT("epoll_ctl write[%d][%d] %s\n", io->fd, enable,
+                strerror(errno));
+  }
+  return res;
 }
 
 void actor_io_init(void) {
@@ -81,11 +93,11 @@ void actor_io_deinit(void) {
 static void* thread_io_worker(void* arg) {
   struct epoll_event events[MAX_EVENTS];
   int wait_time = 100, nfds = 0;
-  // ACTOR_MSLEEP(5000);
   while (1) {
-    ACTOR_PRINT("wait %d\n", wait_time);
+    // ACTOR_PRINT("epoll_wait time %d\n", wait_time);
     nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, wait_time);
     if (nfds == -1) {
+      ACTOR_PRINT("epoll_wait error %d %s\n", errno, strerror(errno));
       ACTOR_MSLEEP(100);
       continue;
     }
@@ -106,7 +118,7 @@ static void* thread_io_worker(void* arg) {
 
 static int process_io_timeout() {
   alist_node_t* list = &G_NODE.list;
-  int wait_time = 1000;
+  int wait_time = -1;
   actor_io_t* io = NULL;
   actor_tick_t tick = ACTOR_GET_TICK(NULL);
   ACTOR_SPIN_LOCK(&G_NODE);
@@ -143,6 +155,7 @@ static int process_io(actor_io_t* io, int event) {
         tmp = read(io->fd, buf, sizeof(buf));
         if (tmp < 1) {
           timeout = io->timeout;
+          ACTOR_PRINT("error %d\n", errno);
           break;
         }
         for (int i = 0; i < tmp; i++) {

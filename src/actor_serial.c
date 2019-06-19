@@ -52,7 +52,9 @@ int config_serial(actor_serial_t* serial,
   }
   options.c_cflag |= CLOCAL;
   options.c_cflag |= CREAD;
+
   // options.c_cflag &= ~CRTSCTS;
+
   options.c_cflag &= ~CSIZE;
   switch (bits) {
     case 5:
@@ -106,12 +108,12 @@ int config_serial(actor_serial_t* serial,
       ACTOR_PRINT("stop not support\n");
       return -1;
   }
-  options.c_oflag = 0;
-  options.c_lflag |= 0;
+  // options.c_oflag = 0;
+  // options.c_lflag |= 0;
   options.c_oflag &= ~OPOST;
-  // options.c_cflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+  options.c_cflag &= ~(ICANON | ECHO | ECHOE | ISIG);
   options.c_cc[VTIME] = 0;
-  options.c_cc[VMIN] = 0;
+  options.c_cc[VMIN] = 1;
   tcflush(io->fd, TCIFLUSH);
   return tcsetattr(io->fd, TCSANOW, &options);
 }
@@ -138,7 +140,7 @@ actor_serial_t* open_serial(char* name,
   ACTOR_ASSERT(io->recv_buf != NULL);
   io->send_buf = ACTOR_MALLOC(io->send_buf_len);
   ACTOR_ASSERT(io->send_buf != NULL);
-  io->fd = open(name, O_RDWR | O_NONBLOCK);
+  io->fd = open(name, O_RDWR);
   if (io->fd < 0) {
     ACTOR_PRINT("open serial error %s %d\n", name, errno);
     ACTOR_FREE(io->send_buf);
