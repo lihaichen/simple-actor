@@ -77,14 +77,16 @@ int main() {
     goto breakout;
   }
   const char* s = "This is serial test code";
+#if 1
+  actor_io_write(serial->io, (void*)s, strlen(s));
+#else
   int len = write(serial->io->fd, s, strlen(s));
   printf("send[%d] len %d\n", serial->io->fd, len);
   ACTOR_MSLEEP(20);
   len = write(serial->io->fd, s, strlen(s));
   printf("send[%d] len %d\n", serial->io->fd, len);
-  // char buf[8];
-  // len = read(serial->io->fd, buf, 3);
-  // printf("recv len %d\n", len);
+#endif
+
   sleep(10);
   close_serial(serial);
 

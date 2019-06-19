@@ -12,8 +12,9 @@
 #define MAX_EVENTS 2
 
 static void* thread_io_worker(void* arg);
-static int process_io(actor_io_t* io, int event);
 static int process_io_timeout();
+static int process_io_recv(actor_io_t* io);
+static int process_io_send(actor_io_t* io);
 
 static int epoll_fd;
 pthread_t pid;
@@ -58,15 +59,15 @@ int actor_io_del(actor_io_t* io) {
   if (res < 0) {
     ACTOR_PRINT("epoll_ctl del[%d] %s\n", io->fd, strerror(errno));
   }
-  // if (G_NODE.pipe != NULL) {
-  //   if (write(G_NODE.pipe->fd[1], "R", 1) != 1) {
-  //     ACTOR_PRINT("actor_io_del write pipe %d %s\n", errno, strerror(errno));
-  //   }
-  // }
+  if (G_NODE.pipe != NULL) {
+    if (write(G_NODE.pipe->fd[1], "R", 1) != 1) {
+      ACTOR_PRINT("actor_io_del write pipe %d %s\n", errno, strerror(errno));
+    }
+  }
   return res;
 }
 
-int actor_io_write(actor_io_t* io, int enable) {
+int actor_io_write_enable(actor_io_t* io, int enable) {
   struct epoll_event ev;
   ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
   ev.data.ptr = io;
@@ -95,7 +96,6 @@ void actor_io_init(void) {
   if (G_NODE.pipe == NULL) {
     ACTOR_PRINT("io create pipe error\n");
   }
-
   // create io thread
   pthread_create(&pid, NULL, thread_io_worker, NULL);
   return;
@@ -103,6 +103,7 @@ void actor_io_init(void) {
 
 void actor_io_deinit(void) {
   pthread_cancel(pid);
+  ACTOR_SPIN_UNLOCK(&G_NODE);
   destroy_pipe(G_NODE.pipe);
   if (epoll_fd > 0) {
     close(epoll_fd);
@@ -130,7 +131,13 @@ static void* thread_io_worker(void* arg) {
     for (int i = 0; i < nfds; i++) {
       actor_io_t* io = (actor_io_t*)events[i].data.ptr;
       // ACTOR_PRINT("ready fd[%d] event[%X]\n", io->fd, events[i].events);
-      wait_time = process_io(io, events[i].events);
+      if (events[i].events & EPOLLIN) {
+        int t = process_io_recv(io);
+        wait_time = (wait_time < 0) || (wait_time < t) ? t : wait_time;
+      }
+      if (events[i].events & EPOLLOUT) {
+        process_io_send(io);
+      }
     }
     ACTOR_MSLEEP(5);
   }
@@ -148,8 +155,26 @@ static int process_io_timeout() {
     if ((io->type == ACTOR_IO_SERIAL || io->type == ACTOR_IO_PIPE) &&
         io->recv_r != io->recv_w) {
       if (IS_TIMEOUT(tick, io->time + io->timeout)) {
-        ACTOR_PRINT("timeout len[%d]\n", io->recv_w - io->recv_r);
+        int len = io->recv_w - io->recv_r;
+        if (len < 0)
+          len += io->recv_buf_len;
+        ACTOR_PRINT("timeout fd[%d] len[%d] %d %d\n", io->fd, len, io->recv_r,
+                    io->recv_w);
+        char* tmp = ACTOR_MALLOC(len + 1);
+        if (tmp != NULL) {
+          memset(tmp, 0, len + 1);
+          for (int i = 0; i < len; i++) {
+            tmp[i] = io->recv_buf[io->recv_r++];
+            io->recv_r %= io->recv_buf_len;
+          }
+          ACTOR_PRINT("==>%s\n", tmp);
+          ACTOR_MSLEEP(100);
+          ACTOR_FREE(tmp);
+        } else {
+          ACTOR_PRINT("io malloc[%d] null\n", len);
+        }
         io->recv_r = io->recv_w = 0;
+        memset(io->recv_buf, 0, io->recv_buf_len);
       } else {
         int diff = tick - io->time - io->timeout;
         wait_time = (wait_time < 0) || (wait_time < diff) ? diff : wait_time;
@@ -160,7 +185,7 @@ static int process_io_timeout() {
   return wait_time;
 }
 
-static int process_io(actor_io_t* io, int event) {
+static int process_io_recv(actor_io_t* io) {
   int timeout = -1;
   char buf[128];
   int tmp = 0;
@@ -185,17 +210,58 @@ static int process_io(actor_io_t* io, int event) {
       ACTOR_PRINT("read[%d] error %d\n", io->fd, errno);
       break;
     }
+    ACTOR_SPIN_LOCK(io);
     for (int i = 0; i < tmp; i++) {
       io->recv_buf[io->recv_w++] = buf[i];
       if (io->recv_w == io->recv_r) {
         io->recv_r++;
         io->recv_r %= io->recv_buf_len;
       }
-      io->recv_w %= io->send_buf_len;
+      io->recv_w %= io->recv_buf_len;
     }
+    ACTOR_SPIN_UNLOCK(io);
     ACTOR_GET_TICK(&io->time);
   } while (tmp > 0);
   return timeout;
+}
+
+static int process_io_send(actor_io_t* io) {
+  ACTOR_SPIN_LOCK(io);
+  if (io->send_r > io->send_w) {
+    int len = io->send_buf_len - io->send_r + 1;
+    if (write(io->fd, io->send_buf + io->send_r, len) != len) {
+      goto breakout;
+    }
+    io->send_r = 0;
+  }
+  if (io->send_r < io->send_w) {
+    int len = io->send_w - io->send_r;
+    if (write(io->fd, io->send_buf + io->send_r, len) != len) {
+      goto breakout;
+    }
+    io->send_r = io->send_w = 0;
+    actor_io_write_enable(io, 0);
+  }
+breakout:
+  ACTOR_SPIN_UNLOCK(io);
+  return -1;
+}
+
+int actor_io_write(actor_io_t* io, void* buf, int len) {
+  int i = 0, remain = 0;
+  ACTOR_SPIN_LOCK(io);
+  remain = io->send_r - io->send_w;
+  if (remain <= 0)
+    remain += io->send_buf_len;
+  remain--;
+  remain = remain > len ? len : remain;
+  for (i = 0; i < remain; i++) {
+    io->send_buf[io->send_w++] = ((char*)buf)[i];
+    io->send_w %= io->send_buf_len;
+  }
+  ACTOR_SPIN_UNLOCK(io);
+  actor_io_write_enable(io, 1);
+  return remain;
 }
 
 actor_io_t* create_io(int send_buf_len, int recv_buf_len) {
@@ -209,6 +275,7 @@ actor_io_t* create_io(int send_buf_len, int recv_buf_len) {
   io->send_buf = ACTOR_MALLOC(io->send_buf_len);
   ACTOR_ASSERT(io->send_buf != NULL);
   alist_init(&io->list);
+  ACTOR_SPIN_INIT(io);
   return io;
 }
 
@@ -216,5 +283,6 @@ int delete_io(actor_io_t* io) {
   ACTOR_ASSERT(io != NULL);
   ACTOR_FREE(io->send_buf);
   ACTOR_FREE(io->recv_buf);
+  ACTOR_SPIN_DESTROY(io);
   return 0;
 }
