@@ -145,7 +145,7 @@ actor_serial_t* open_serial(char* name,
     ACTOR_FREE(serial);
     return NULL;
   }
-  actor_io_add(io);
+  actor_io_fd_add(io);
   return serial;
 }
 
@@ -153,7 +153,7 @@ int close_serial(actor_serial_t* serial) {
   ACTOR_ASSERT(serial != NULL);
   actor_io_t* io = serial->io;
   ACTOR_ASSERT(io != NULL);
-  actor_io_del(io);
+  actor_io_fd_delete(io);
   if (io->fd > 0) {
     close(io->fd);
   }

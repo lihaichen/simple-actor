@@ -2,8 +2,8 @@
 #include "actor_io.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <pthread.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 #include "actor_common.h"
 #include "actor_def.h"
@@ -16,108 +16,120 @@ static int process_io_timeout();
 static int process_io_recv(actor_io_t* io);
 static int process_io_send(actor_io_t* io);
 
-static int epoll_fd;
-pthread_t pid;
-
 struct actor_io_node {
   alist_node_t list;
   actor_pipe_t* pipe;
   struct actor_spinlock lock;
+  int poll_sum;
+  pthread_t pid;
 };
 
 static struct actor_io_node G_NODE;
 
-int actor_io_add(actor_io_t* io) {
-  struct epoll_event ev;
+int actor_io_fd_add(actor_io_t* io) {
   int res = 0;
   ACTOR_ASSERT(io != NULL);
   ACTOR_SPIN_LOCK(&G_NODE);
   alist_insert_after(&G_NODE.list, &io->list);
+  G_NODE.poll_sum++;
   ACTOR_SPIN_UNLOCK(&G_NODE);
-  ev.events = EPOLLIN;
-  ev.data.ptr = io;
+  io->event = POLLIN;
   int flags = fcntl(io->fd, F_GETFL, 0);
   flags |= O_NONBLOCK;
   fcntl(io->fd, F_SETFL, flags);
-  res = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, io->fd, &ev);
-  if (res < 0) {
-    ACTOR_PRINT("epoll_ctl add[%d] %s\n", io->fd, strerror(errno));
-  }
   if (G_NODE.pipe != NULL) {
     if (write(G_NODE.pipe->fd[1], "A", 1) != 1) {
-      ACTOR_PRINT("actor_io_add write pipe %d %s\n", errno, strerror(errno));
+      ACTOR_PRINT("actor_io_fd_add write pipe %d %s\n", errno, strerror(errno));
     }
   }
+  ACTOR_PRINT("actor_io_fd_add %d sum %d\n", io->fd, G_NODE.poll_sum);
   return res;
 }
 
-int actor_io_del(actor_io_t* io) {
+int actor_io_fd_delete(actor_io_t* io) {
+  int res = 0;
   ACTOR_SPIN_LOCK(&G_NODE);
-  alist_remove(&io->list);
-  ACTOR_SPIN_UNLOCK(&G_NODE);
-  int res = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, io->fd, NULL);
-  if (res < 0) {
-    ACTOR_PRINT("epoll_ctl del[%d] %s\n", io->fd, strerror(errno));
+  if (!alist_isempty(&io->list)) {
+    alist_remove(&io->list);
+    G_NODE.poll_sum--;
   }
+  ACTOR_SPIN_UNLOCK(&G_NODE);
   if (G_NODE.pipe != NULL) {
     if (write(G_NODE.pipe->fd[1], "R", 1) != 1) {
-      ACTOR_PRINT("actor_io_del write pipe %d %s\n", errno, strerror(errno));
+      ACTOR_PRINT("actor_io_fd_delete write pipe %d %s\n", errno,
+                  strerror(errno));
     }
   }
+  ACTOR_PRINT("actor_io_fd_delete %d\n", io->fd);
   return res;
 }
 
-int actor_io_write_enable(actor_io_t* io, int enable) {
-  struct epoll_event ev;
-  ev.events = EPOLLIN | (enable ? EPOLLOUT : 0);
-  ev.data.ptr = io;
-  int res = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, io->fd, &ev);
-  if (res < 0) {
-    ACTOR_PRINT("epoll_ctl write[%d][%d] %s\n", io->fd, enable,
-                strerror(errno));
-  }
+int actor_io_fd_write(actor_io_t* io, int enable) {
+  int res = 0;
+  ACTOR_SPIN_LOCK(io);
+  io->event = POLLIN | (enable ? POLLOUT : 0);
+  ACTOR_SPIN_UNLOCK(io);
   if (G_NODE.pipe != NULL) {
     if (write(G_NODE.pipe->fd[1], "M", 1) != 1) {
       ACTOR_PRINT("actor_io_write write pipe %d %s\n", errno, strerror(errno));
     }
   }
+  ACTOR_PRINT("actor_io_fd_write %d enable[%d]\n", io->fd, enable);
   return res;
 }
 
 void actor_io_init(void) {
   ACTOR_SPIN_INIT(&G_NODE);
   alist_init(&G_NODE.list);
-  epoll_fd = epoll_create(1);
-  if (epoll_fd < 0) {
-    ACTOR_PRINT("epoll create %s\n", strerror(errno));
-    return;
-  }
   G_NODE.pipe = create_pipe(NULL, 16, 16, 20);
   if (G_NODE.pipe == NULL) {
     ACTOR_PRINT("io create pipe error\n");
   }
   // create io thread
-  pthread_create(&pid, NULL, thread_io_worker, NULL);
+  pthread_create(&G_NODE.pid, NULL, thread_io_worker, NULL);
   return;
 }
 
 void actor_io_deinit(void) {
-  pthread_cancel(pid);
+  pthread_cancel(G_NODE.pid);
   ACTOR_SPIN_UNLOCK(&G_NODE);
   destroy_pipe(G_NODE.pipe);
-  if (epoll_fd > 0) {
-    close(epoll_fd);
-  }
   ACTOR_SPIN_DESTROY(&G_NODE);
   return;
 }
 
 static void* thread_io_worker(void* arg) {
-  struct epoll_event events[MAX_EVENTS];
+  struct pollfd* fds = NULL;
+  alist_node_t* list = &G_NODE.list;
+  actor_io_t* io = NULL;
   int wait_time = -1, nfds = 0;
   while (1) {
-    ACTOR_PRINT("epoll_wait time %d\n", wait_time);
-    nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, wait_time);
+    if (G_NODE.poll_sum < 1) {
+      ACTOR_MSLEEP(100);
+      continue;
+    }
+    if (fds != NULL)
+      ACTOR_FREE(fds);
+    fds = ACTOR_MALLOC(sizeof(struct pollfd) * G_NODE.poll_sum);
+    if (fds == NULL) {
+      ACTOR_PRINT("thread io malloc null\n");
+      ACTOR_MSLEEP(100);
+      continue;
+    }
+    memset(fds, 0, sizeof(struct pollfd) * G_NODE.poll_sum);
+    ACTOR_SPIN_LOCK(&G_NODE);
+    G_NODE.poll_sum = 0;
+    for (struct alist_node* node = list->next; node != list;
+         node = node->next) {
+      io = acontainer_of(node, struct actor_io, list);
+      fds[G_NODE.poll_sum].fd = io->fd;
+      fds[G_NODE.poll_sum].events = io->event;
+      fds[G_NODE.poll_sum].revents = 0;
+      G_NODE.poll_sum++;
+    }
+    ACTOR_SPIN_UNLOCK(&G_NODE);
+    ACTOR_PRINT("poll time %d sum %d\n", wait_time, G_NODE.poll_sum);
+    nfds = poll(fds, G_NODE.poll_sum, wait_time);
     if (nfds == -1) {
       ACTOR_PRINT("epoll_wait error %d %s\n", errno, strerror(errno));
       ACTOR_MSLEEP(100);
@@ -128,14 +140,30 @@ static void* thread_io_worker(void* arg) {
       wait_time = process_io_timeout();
       continue;
     }
+
     for (int i = 0; i < nfds; i++) {
-      actor_io_t* io = (actor_io_t*)events[i].data.ptr;
-      // ACTOR_PRINT("ready fd[%d] event[%X]\n", io->fd, events[i].events);
-      if (events[i].events & EPOLLIN) {
+      ACTOR_PRINT("ready fd[%d] event[%d]\n", fds[i].fd, fds[i].revents);
+      io = NULL;
+      ACTOR_SPIN_LOCK(&G_NODE);
+      for (struct alist_node* node = list->next; node != list;
+           node = node->next) {
+        actor_io_t* tmp = acontainer_of(node, struct actor_io, list);
+        if (tmp->fd == fds[i].fd) {
+          io = tmp;
+          break;
+        }
+      }
+      ACTOR_SPIN_UNLOCK(&G_NODE);
+      if (io == NULL) {
+        ACTOR_PRINT("poll fd not find %d\n", fds[i].fd);
+        continue;
+      }
+
+      if (fds[i].revents & POLLIN) {
         int t = process_io_recv(io);
         wait_time = (wait_time < 0) || (wait_time < t) ? t : wait_time;
       }
-      if (events[i].events & EPOLLOUT) {
+      if (fds[i].revents & POLLOUT) {
         process_io_send(io);
       }
     }
@@ -240,7 +268,7 @@ static int process_io_send(actor_io_t* io) {
       goto breakout;
     }
     io->send_r = io->send_w = 0;
-    actor_io_write_enable(io, 0);
+    actor_io_fd_write(io, 0);
   }
 breakout:
   ACTOR_SPIN_UNLOCK(io);
@@ -260,7 +288,7 @@ int actor_io_write(actor_io_t* io, void* buf, int len) {
     io->send_w %= io->send_buf_len;
   }
   ACTOR_SPIN_UNLOCK(io);
-  actor_io_write_enable(io, 1);
+  actor_io_fd_write(io, 1);
   return remain;
 }
 

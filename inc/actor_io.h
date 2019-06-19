@@ -32,15 +32,16 @@ typedef struct actor_io {
   actor_tick_t time;
   alist_node_t list;
   struct actor_spinlock lock;
+  int event;
 } actor_io_t;
 
 extern void actor_io_init(void);
 extern void actor_io_deinit(void);
 
-extern int actor_io_add(actor_io_t* io);
+extern int actor_io_fd_add(actor_io_t* io);
 
-extern int actor_io_del(actor_io_t* io);
-extern int actor_io_write_enable(actor_io_t* io, int enable);
+extern int actor_io_fd_delete(actor_io_t* io);
+extern int actor_io_fd_write(actor_io_t* io, int enable);
 extern int actor_io_write(actor_io_t* io, void* buf, int len);
 extern actor_io_t* create_io(int send_buf_len, int recv_buf_len);
 extern int delete_io(actor_io_t* io);

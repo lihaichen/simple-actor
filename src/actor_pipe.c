@@ -28,12 +28,12 @@ actor_pipe_t* create_pipe(struct actor_context* context,
     return NULL;
   }
   io->fd = ap->fd[0];
-  actor_io_add(io);
+  actor_io_fd_add(io);
   return ap;
 }
 
 int destroy_pipe(actor_pipe_t* ap) {
-  actor_io_del(ap->io);
+  actor_io_fd_delete(ap->io);
   close(ap->fd[0]);
   close(ap->fd[1]);
   delete_io(ap->io);
