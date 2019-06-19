@@ -15,6 +15,7 @@ static void* thread_io_worker(void* arg);
 static int process_io_timeout();
 static int process_io_recv(actor_io_t* io);
 static int process_io_send(actor_io_t* io);
+static struct pollfd* generate_pollfd(struct pollfd* last_fds);
 
 struct actor_io_node {
   alist_node_t list;
@@ -63,12 +64,10 @@ int actor_io_fd_delete(actor_io_t* io) {
   ACTOR_PRINT("actor_io_fd_delete %d\n", io->fd);
   return res;
 }
-// this must use lock in caller
+// this must use io lock in caller
 int actor_io_fd_write(actor_io_t* io, int enable) {
   int res = 0;
-  // ACTOR_SPIN_LOCK(io);
   io->event = POLLIN | (enable ? POLLOUT : 0);
-  // ACTOR_SPIN_UNLOCK(io);
   if (G_NODE.pipe != NULL) {
     if (write(G_NODE.pipe->fd[1], "M", 1) != 1) {
       ACTOR_PRINT("actor_io_write write pipe %d %s\n", errno, strerror(errno));
@@ -98,6 +97,30 @@ void actor_io_deinit(void) {
   return;
 }
 
+static struct pollfd* generate_pollfd(struct pollfd* last_fds) {
+  struct pollfd* fds = NULL;
+  actor_io_t* io = NULL;
+  ACTOR_SPIN_LOCK(&G_NODE);
+  alist_node_t* list = &G_NODE.list;
+  if (last_fds != NULL)
+    ACTOR_FREE(last_fds);
+  fds = ACTOR_MALLOC(sizeof(struct pollfd) * G_NODE.poll_sum);
+  if (fds == NULL) {
+    goto breakout;
+  }
+  G_NODE.poll_sum = 0;
+  for (struct alist_node* node = list->next; node != list; node = node->next) {
+    io = acontainer_of(node, struct actor_io, list);
+    fds[G_NODE.poll_sum].fd = io->fd;
+    fds[G_NODE.poll_sum].events = io->event;
+    fds[G_NODE.poll_sum].revents = 0;
+    G_NODE.poll_sum++;
+  }
+breakout:
+  ACTOR_SPIN_UNLOCK(&G_NODE);
+  return fds;
+}
+
 static void* thread_io_worker(void* arg) {
   struct pollfd* fds = NULL;
   alist_node_t* list = &G_NODE.list;
@@ -108,26 +131,11 @@ static void* thread_io_worker(void* arg) {
       ACTOR_MSLEEP(100);
       continue;
     }
-    if (fds != NULL)
-      ACTOR_FREE(fds);
-    fds = ACTOR_MALLOC(sizeof(struct pollfd) * G_NODE.poll_sum);
+    fds = generate_pollfd(fds);
     if (fds == NULL) {
-      ACTOR_PRINT("thread io malloc null\n");
       ACTOR_MSLEEP(100);
       continue;
     }
-    memset(fds, 0, sizeof(struct pollfd) * G_NODE.poll_sum);
-    ACTOR_SPIN_LOCK(&G_NODE);
-    G_NODE.poll_sum = 0;
-    for (struct alist_node* node = list->next; node != list;
-         node = node->next) {
-      io = acontainer_of(node, struct actor_io, list);
-      fds[G_NODE.poll_sum].fd = io->fd;
-      fds[G_NODE.poll_sum].events = io->event;
-      fds[G_NODE.poll_sum].revents = 0;
-      G_NODE.poll_sum++;
-    }
-    ACTOR_SPIN_UNLOCK(&G_NODE);
     ACTOR_PRINT("poll time %d sum %d\n", wait_time, G_NODE.poll_sum);
     nfds = poll(fds, G_NODE.poll_sum, wait_time);
     if (nfds == -1) {
