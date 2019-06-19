@@ -63,12 +63,12 @@ int actor_io_fd_delete(actor_io_t* io) {
   ACTOR_PRINT("actor_io_fd_delete %d\n", io->fd);
   return res;
 }
-
+// this must use lock in caller
 int actor_io_fd_write(actor_io_t* io, int enable) {
   int res = 0;
-  ACTOR_SPIN_LOCK(io);
+  // ACTOR_SPIN_LOCK(io);
   io->event = POLLIN | (enable ? POLLOUT : 0);
-  ACTOR_SPIN_UNLOCK(io);
+  // ACTOR_SPIN_UNLOCK(io);
   if (G_NODE.pipe != NULL) {
     if (write(G_NODE.pipe->fd[1], "M", 1) != 1) {
       ACTOR_PRINT("actor_io_write write pipe %d %s\n", errno, strerror(errno));
@@ -287,8 +287,8 @@ int actor_io_write(actor_io_t* io, void* buf, int len) {
     io->send_buf[io->send_w++] = ((char*)buf)[i];
     io->send_w %= io->send_buf_len;
   }
-  ACTOR_SPIN_UNLOCK(io);
   actor_io_fd_write(io, 1);
+  ACTOR_SPIN_UNLOCK(io);
   return remain;
 }
 
