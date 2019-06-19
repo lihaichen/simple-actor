@@ -67,7 +67,7 @@ int main() {
   //   actor_context_send(ctx1, ctx3, 0, i, buf, strlen(buf));
   // }
   sleep(1);
-  actor_serial_t* serial = open_serial("/dev/ttyUSB0", NULL, 512, 512, 20);
+  actor_serial_t* serial = open_serial("/dev/ttyUSB0", ctx1, 512, 512, 20);
   if (serial == NULL) {
     ACTOR_PRINT("open_serial null\n");
     goto breakout;

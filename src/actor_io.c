@@ -196,16 +196,20 @@ static int process_io_timeout() {
           len += io->recv_buf_len;
         ACTOR_PRINT("timeout fd[%d] len[%d] %d %d\n", io->fd, len, io->recv_r,
                     io->recv_w);
-        char* tmp = ACTOR_MALLOC(len + 1);
-        if (tmp != NULL) {
-          memset(tmp, 0, len + 1);
-          for (int i = 0; i < len; i++) {
-            tmp[i] = io->recv_buf[io->recv_r++];
-            io->recv_r %= io->recv_buf_len;
+        ACTOR_PRINT("==>%s\n", io->recv_buf);
+        if (io->context) {
+          char* tmp = ACTOR_MALLOC(len + 1);
+          if (tmp != NULL) {
+            memset(tmp, 0, len + 1);
+            for (int i = 0; i < len; i++) {
+              tmp[i] = io->recv_buf[io->recv_r++];
+              io->recv_r %= io->recv_buf_len;
+            }
+            actor_context_send(NULL, io->context, ACTOR_MSG_TYPE_TEXT, 1234,
+                               tmp, len);
+            ACTOR_FREE(tmp);
           }
-          ACTOR_PRINT("==>%s\n", tmp);
-          ACTOR_MSLEEP(100);
-          ACTOR_FREE(tmp);
+
         } else {
           ACTOR_PRINT("io malloc[%d] null\n", len);
         }
