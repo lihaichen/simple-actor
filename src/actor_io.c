@@ -289,6 +289,10 @@ breakout:
   return -1;
 }
 
+int actor_io_write_direct(actor_io_t* io, void* buf, int len) {
+  return write(io->fd, buf, len);
+}
+
 int actor_io_write(actor_io_t* io, void* buf, int len) {
   int i = 0, remain = 0;
   ACTOR_SPIN_LOCK(io);
