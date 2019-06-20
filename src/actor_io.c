@@ -198,9 +198,8 @@ static int process_io_timeout() {
           len += io->recv_buf_len;
         ACTOR_PRINT("timeout fd[%d] len[%d] %d %d\n", io->fd, len, io->recv_r,
                     io->recv_w);
-        ACTOR_PRINT("==>%s\n", io->recv_buf);
         if (io->context) {
-          char* tmp = ACTOR_MALLOC(len + 1);
+          unsigned char* tmp = ACTOR_MALLOC(len + 1);
           if (tmp != NULL) {
             memset(tmp, 0, len + 1);
             for (int i = 0; i < len; i++) {
@@ -302,7 +301,7 @@ int actor_io_write(actor_io_t* io, void* buf, int len) {
   remain--;
   remain = remain > len ? len : remain;
   for (i = 0; i < remain; i++) {
-    io->send_buf[io->send_w++] = ((char*)buf)[i];
+    io->send_buf[io->send_w++] = ((unsigned char*)buf)[i];
     io->send_w %= io->send_buf_len;
   }
   actor_io_fd_write(io, 1);

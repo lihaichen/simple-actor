@@ -50,11 +50,7 @@ int config_serial(actor_serial_t* serial,
       ACTOR_PRINT("baudrate not support\n");
       return -1;
   }
-  options.c_cflag |= CLOCAL;
-  options.c_cflag |= CREAD;
-
-  // options.c_cflag &= ~CRTSCTS;
-
+  options.c_cflag |= (CLOCAL | CREAD);
   options.c_cflag &= ~CSIZE;
   switch (bits) {
     case 5:
@@ -77,21 +73,16 @@ int config_serial(actor_serial_t* serial,
     case 'n':
     case 'N':
       options.c_cflag &= ~PARENB;
-      options.c_cflag &= ~INPCK;
       break;
     case 'o':
     case 'O':
       options.c_cflag |= PARENB;
       options.c_cflag |= PARODD;
-      options.c_cflag |= INPCK;
-      options.c_cflag |= ISTRIP;
       break;
     case 'e':
     case 'E':
       options.c_cflag |= PARENB;
       options.c_cflag &= ~PARODD;
-      options.c_cflag |= INPCK;
-      options.c_cflag |= ISTRIP;
       break;
     default:
       ACTOR_PRINT("parity not support\n");
@@ -108,10 +99,10 @@ int config_serial(actor_serial_t* serial,
       ACTOR_PRINT("stop not support\n");
       return -1;
   }
-  // options.c_oflag = 0;
-  // options.c_lflag |= 0;
-  options.c_oflag &= ~OPOST;
-  options.c_cflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+  options.c_oflag = 0;
+  options.c_lflag = 0;
+  options.c_oflag &=~OPOST;
+
   options.c_cc[VTIME] = 0;
   options.c_cc[VMIN] = 1;
   tcflush(io->fd, TCIFLUSH);
@@ -138,7 +129,7 @@ actor_serial_t* open_serial(char* name,
   io->type = ACTOR_IO_SERIAL;
   serial->io = io;
 
-  io->fd = open(name, O_RDWR);
+  io->fd = open(name, O_RDWR | O_NOCTTY);
   if (io->fd < 0) {
     ACTOR_PRINT("open serial error %s %d\n", name, errno);
     delete_io(io);

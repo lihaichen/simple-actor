@@ -6,6 +6,7 @@
 #include "actor_timer.h"
 
 struct actor_context;
+
 int print_cb(struct actor_context* context,
              void* ud,
              int type,
@@ -26,11 +27,48 @@ int print_cb(struct actor_context* context,
   usleep(100 * 1000);
   return 0;
 }
+
+static int rfid_cb(struct actor_context* context,
+                   void* ud,
+                   int type,
+                   int session,
+                   void* source,
+                   const void* msg,
+                   int sz) {
+  actor_serial_t* serial = NULL;
+  if (type == ACTOR_MSG_TYPE_INIT) {
+    printf("[%s] init...\n", actor_context_name(context));
+    serial = open_serial("/dev/ttyUSB0", context, 512, 512, 20);
+    if (serial == NULL) {
+      ACTOR_PRINT("open_serial null\n");
+      return 0;
+    }
+    if (config_serial(serial, 115200, 8, 'n', 1) != 0) {
+      ACTOR_PRINT("config_serial error\n");
+      return 0;
+    }
+    char tmp[] = {0xA0, 0x03, 0x01, 0x70, 0xEC};
+    actor_io_write(serial->io, (void*)tmp, sizeof(tmp));
+    return 0;
+  }
+  if (type == ACTOR_MSG_TYPE_IO) {
+    printf("recv==>");
+    for (int i = 0; i < sz; i++) {
+      unsigned char* p = msg;
+      printf("%02X ", p[i]);
+    }
+    printf("\n");
+  }
+  return 0;
+}
+
 int main() {
   actor_start(3);
   struct actor_context* ctx1 = actor_context_new("actor1", print_cb, NULL);
   struct actor_context* ctx2 = actor_context_new("actor2", print_cb, NULL);
   struct actor_context* ctx3 = actor_context_new("actor3", print_cb, NULL);
+  actor_context_new("rfid", rfid_cb, NULL);
+
   //   actor_context_callback(ctx1, print_cb, NULL);
   //   actor_context_callback(ctx2, print_cb, NULL);
   //   actor_context_callback(ctx3, print_cb, NULL);
@@ -66,29 +104,30 @@ int main() {
   //   sprintf(buf, "hello actor3 %02d", i);
   //   actor_context_send(ctx1, ctx3, 0, i, buf, strlen(buf));
   // }
-  sleep(1);
-  actor_serial_t* serial = open_serial("/dev/ttyUSB0", ctx1, 512, 512, 20);
-  if (serial == NULL) {
-    ACTOR_PRINT("open_serial null\n");
-    goto breakout;
-  }
-  if (config_serial(serial, 115200, 8, 'n', 1) != 0) {
-    ACTOR_PRINT("config_serial error\n");
-    goto breakout;
-  }
-  const char* s = "This is serial test code";
-#if 1
+
+  // actor_serial_t* serial = open_serial("/dev/ttyUSB0", ctx1, 512, 512, 20);
+  // if (serial == NULL) {
+  //   ACTOR_PRINT("open_serial null\n");
+  //   goto breakout;
+  // }
+  // if (config_serial(serial, 115200, 8, 'n', 1) != 0) {
+  //   ACTOR_PRINT("config_serial error\n");
+  //   goto breakout;
+  // }
+  // const char* s = "This is serial test code";
+#if 0
   actor_io_write(serial->io, (void*)s, strlen(s));
+#elif 0
+  int len = actor_io_write_direct(serial->io, (void*)s, strlen(s));
+  printf("send[%d] len %d\n", serial->io->fd, len);
+  ACTOR_MSLEEP(30);
+  len = actor_io_write_direct(serial->io, (void*)s, strlen(s));
+  printf("send[%d] len %d\n", serial->io->fd, len);
 #else
-  int len = write(serial->io->fd, s, strlen(s));
-  printf("send[%d] len %d\n", serial->io->fd, len);
-  ACTOR_MSLEEP(20);
-  len = write(serial->io->fd, s, strlen(s));
-  printf("send[%d] len %d\n", serial->io->fd, len);
 #endif
 
-  sleep(10);
-  close_serial(serial);
+  sleep(20);
+  // close_serial(serial);
 
 breakout:
   printf("end\n");

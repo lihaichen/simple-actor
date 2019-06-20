@@ -24,8 +24,8 @@ typedef struct actor_io {
   unsigned short recv_buf_len;
   unsigned short send_buf_len;
   unsigned short timeout;
-  char* recv_buf;
-  char* send_buf;
+  unsigned char* recv_buf;
+  unsigned char* send_buf;
   struct actor_context* context;
   int fd;
   enum actor_io_type type;
