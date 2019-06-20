@@ -15,7 +15,7 @@ static void* thread_io_worker(void* arg);
 static int process_io_timeout(void);
 static int process_io_recv(actor_io_t* io);
 static int process_io_send(actor_io_t* io);
-static struct pollfd* generate_pollfd(struct pollfd* last_fds);
+static int generate_pollfd(struct pollfd** fds);
 
 struct actor_io_node {
   alist_node_t list;
@@ -97,47 +97,50 @@ void actor_io_deinit(void) {
   return;
 }
 
-static struct pollfd* generate_pollfd(struct pollfd* last_fds) {
-  struct pollfd* fds = NULL;
+static int generate_pollfd(struct pollfd** fds) {
   actor_io_t* io = NULL;
+  int len = 0;
   ACTOR_SPIN_LOCK(&G_NODE);
+
   alist_node_t* list = &G_NODE.list;
-  if (last_fds != NULL)
-    ACTOR_FREE(last_fds);
-  fds = ACTOR_MALLOC(sizeof(struct pollfd) * G_NODE.poll_sum);
-  if (fds == NULL) {
+  if (*fds != NULL)
+    ACTOR_FREE(*fds);
+  *fds = ACTOR_MALLOC(sizeof(struct pollfd) * G_NODE.poll_sum);
+  if (*fds == NULL) {
     goto breakout;
   }
   G_NODE.poll_sum = 0;
   for (struct alist_node* node = list->next; node != list; node = node->next) {
     io = acontainer_of(node, struct actor_io, list);
-    fds[G_NODE.poll_sum].fd = io->fd;
-    fds[G_NODE.poll_sum].events = io->event;
-    fds[G_NODE.poll_sum].revents = 0;
+    (*fds)[G_NODE.poll_sum].fd = io->fd;
+    (*fds)[G_NODE.poll_sum].events = io->event;
+    (*fds)[G_NODE.poll_sum].revents = 0;
     G_NODE.poll_sum++;
   }
+  len = G_NODE.poll_sum;
 breakout:
   ACTOR_SPIN_UNLOCK(&G_NODE);
-  return fds;
+  return len;
 }
 
 static void* thread_io_worker(void* arg) {
   struct pollfd* fds = NULL;
   alist_node_t* list = &G_NODE.list;
   actor_io_t* io = NULL;
-  int wait_time = -1, nfds = 0;
+  int wait_time = -1, nfds = 0, poll_sum = 0;
   while (1) {
     if (G_NODE.poll_sum < 1) {
       ACTOR_MSLEEP(100);
       continue;
     }
-    fds = generate_pollfd(fds);
+    poll_sum = generate_pollfd(&fds);
     if (fds == NULL) {
       ACTOR_MSLEEP(100);
       continue;
     }
-    ACTOR_PRINT("poll time %d sum %d\n", wait_time, G_NODE.poll_sum);
-    nfds = poll(fds, G_NODE.poll_sum, wait_time);
+
+    ACTOR_PRINT("poll time %d sum %d\n", wait_time, poll_sum);
+    nfds = poll(fds, poll_sum, wait_time);
     if (nfds == -1) {
       ACTOR_PRINT("epoll_wait error %d %s\n", errno, strerror(errno));
       ACTOR_MSLEEP(100);
@@ -149,7 +152,7 @@ static void* thread_io_worker(void* arg) {
       continue;
     }
 
-    for (int i = 0; i < G_NODE.poll_sum; i++) {
+    for (int i = 0; i < poll_sum; i++) {
       if (fds[i].revents == 0)
         continue;
       ACTOR_PRINT("ready fd[%d] event[%d]\n", fds[i].fd, fds[i].revents);
