@@ -205,13 +205,13 @@ static int process_io_timeout() {
               tmp[i] = io->recv_buf[io->recv_r++];
               io->recv_r %= io->recv_buf_len;
             }
-            actor_context_send(NULL, io->context, ACTOR_MSG_TYPE_TEXT, 1234,
-                               tmp, len);
+            actor_context_send(NULL, io->context, ACTOR_MSG_TYPE_IO, 0, tmp,
+                               len);
             ACTOR_FREE(tmp);
           }
 
         } else {
-          ACTOR_PRINT("io malloc[%d] null\n", len);
+          ACTOR_PRINT("io context[%d] null\n", len);
         }
         io->recv_r = io->recv_w = 0;
         memset(io->recv_buf, 0, io->recv_buf_len);
