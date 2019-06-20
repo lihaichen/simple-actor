@@ -12,7 +12,7 @@
 #define MAX_EVENTS 2
 
 static void* thread_io_worker(void* arg);
-static int process_io_timeout();
+static int process_io_timeout(void);
 static int process_io_recv(actor_io_t* io);
 static int process_io_send(actor_io_t* io);
 static struct pollfd* generate_pollfd(struct pollfd* last_fds);
@@ -149,7 +149,9 @@ static void* thread_io_worker(void* arg) {
       continue;
     }
 
-    for (int i = 0; i < nfds; i++) {
+    for (int i = 0; i < G_NODE.poll_sum; i++) {
+      if (fds[i].revents == 0)
+        continue;
       ACTOR_PRINT("ready fd[%d] event[%d]\n", fds[i].fd, fds[i].revents);
       io = NULL;
       ACTOR_SPIN_LOCK(&G_NODE);
