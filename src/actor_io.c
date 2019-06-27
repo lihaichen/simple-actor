@@ -271,6 +271,9 @@ static int process_io_recv(actor_io_t* io) {
 
 static int process_io_send(actor_io_t* io) {
   ACTOR_SPIN_LOCK(io);
+  if (io->send_buf_len == 0 || io->send_buf == NULL) {
+    goto breakout;
+  }
   if (io->send_r > io->send_w) {
     int len = io->send_buf_len - io->send_r + 1;
     if (write(io->fd, io->send_buf + io->send_r, len) != len) {
@@ -320,8 +323,12 @@ actor_io_t* create_io(int send_buf_len, int recv_buf_len) {
   io->send_buf_len = send_buf_len;
   io->recv_buf = ACTOR_MALLOC(io->recv_buf_len);
   ACTOR_ASSERT(io->recv_buf != NULL);
-  io->send_buf = ACTOR_MALLOC(io->send_buf_len);
-  ACTOR_ASSERT(io->send_buf != NULL);
+  if (send_buf_len == 0) {
+    io->send_buf = NULL;
+  } else {
+    io->send_buf = ACTOR_MALLOC(io->send_buf_len);
+    ACTOR_ASSERT(io->send_buf != NULL);
+  }
   alist_init(&io->list);
   ACTOR_SPIN_INIT(io);
   return io;
