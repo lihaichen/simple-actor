@@ -96,6 +96,9 @@ int actor_dict_expand(actor_dict_t* dict, unsigned int size) {
     dict->ht[0].table[rehash_index] = NULL;
     rehash_index++;
   }
+  if (dict->ht[0].table) {
+    ACTOR_FREE(dict->ht[0].table);
+  }
   dict->ht[0] = n;
   return 0;
 }
@@ -128,6 +131,8 @@ void actor_dict_enmpty(actor_dict_t* dict) {
         ACTOR_FREE(de);
         de = next;
       }
+      dict->ht[0].table[index] = NULL;
+      index++;
     }
   }
   return;
