@@ -71,3 +71,22 @@ Test(actor_dict, dict_size) {
   actor_dict_destroy(dict);
   return;
 }
+
+Test(actor_dict, iterator) {
+  actor_dict_t* dict = actor_dict_create(&type1);
+  cr_expect_not_null(dict, "actor_dict_create null");
+  long buf[] = {0x1, 0x2, 0x2, 0x3, 0x2, 0x5, 0x3, 0x1, 0x4, 0x5, 0x1, 0x3};
+  for (int i = 0; i < sizeof(buf) / sizeof(long); i++) {
+    actor_dict_add(dict, (void*)buf[i], NULL);
+  }
+  actor_dict_interator_t* iter = actor_dict_create_iterator(dict);
+  cr_expect_not_null(iter, "actor_dict_create_iterator null");
+  actor_dict_entry_t* entry = actor_dict_iterator_next(iter);
+  while (entry != NULL) {
+    printf("key %lX\n", (long)entry->key);
+    entry = actor_dict_iterator_next(iter);
+  }
+
+  actor_dict_destroy_iterator(iter);
+  actor_dict_destroy(dict);
+}

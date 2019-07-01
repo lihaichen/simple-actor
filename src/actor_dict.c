@@ -166,6 +166,38 @@ int actor_dict_delete(actor_dict_t* dict, void* key) {
   return 0;
 }
 
+actor_dict_interator_t* actor_dict_create_iterator(actor_dict_t* dict) {
+  actor_dict_interator_t* res = ACTOR_MALLOC(sizeof(actor_dict_interator_t));
+  if (res == NULL)
+    return res;
+  memset(res, 0, sizeof(actor_dict_interator_t));
+  res->dict = dict;
+  return res;
+}
+
+void actor_dict_destroy_iterator(actor_dict_interator_t* iter) {
+  ACTOR_FREE(iter);
+  return;
+}
+
+actor_dict_entry_t* actor_dict_iterator_next(actor_dict_interator_t* iter) {
+  while (1) {
+    if (iter->index >= iter->dict->ht[0].size) {
+      break;
+    }
+    if (iter->entry == NULL) {
+      iter->entry = iter->dict->ht[0].table[iter->index++];
+    } else {
+      iter->entry = iter->next_entry;
+    }
+    if (iter->entry) {
+      iter->next_entry = iter->entry->next;
+      return iter->entry;
+    }
+  }
+  return NULL;
+}
+
 /**
  * return index if slot null
  * return -1 if key already exist
