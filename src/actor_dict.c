@@ -131,9 +131,9 @@ void actor_dict_enmpty(actor_dict_t* dict) {
         ACTOR_FREE(de);
         de = next;
       }
-      dict->ht[0].table[index] = NULL;
-      index++;
     }
+    dict->ht[0].table[index] = NULL;
+    index++;
   }
   return;
 }
