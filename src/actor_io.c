@@ -73,7 +73,7 @@ int actor_io_fd_write(actor_io_t* io, int enable) {
       ACTOR_PRINT("actor_io_write write pipe %d %s\n", errno, strerror(errno));
     }
   }
-  ACTOR_PRINT("actor_io_fd_write %d enable[%d]\n", io->fd, enable);
+  // ACTOR_PRINT("actor_io_fd_write %d enable[%d]\n", io->fd, enable);
   return res;
 }
 
@@ -139,7 +139,7 @@ static void* thread_io_worker(void* arg) {
       continue;
     }
 
-    ACTOR_PRINT("poll time %d sum %d\n", wait_time, poll_sum);
+    // ACTOR_PRINT("poll time %d sum %d\n", wait_time, poll_sum);
     nfds = poll(fds, poll_sum, wait_time);
     if (nfds == -1) {
       ACTOR_PRINT("epoll_wait error %d %s\n", errno, strerror(errno));
@@ -155,7 +155,7 @@ static void* thread_io_worker(void* arg) {
     for (int i = 0; i < poll_sum; i++) {
       if (fds[i].revents == 0)
         continue;
-      ACTOR_PRINT("ready fd[%d] event[%d]\n", fds[i].fd, fds[i].revents);
+      // ACTOR_PRINT("ready fd[%d] event[%d]\n", fds[i].fd, fds[i].revents);
       io = NULL;
       ACTOR_SPIN_LOCK(&G_NODE);
       for (struct alist_node* node = list->next; node != list;
