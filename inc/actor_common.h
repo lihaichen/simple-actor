@@ -13,7 +13,7 @@ extern "C" {
 #include "actor_server.h"
 #include "actor_timer.h"
 #include "actor_pipe.h"
-#include "dict.h"
+#include "actor_dict.h"
 
 #define acontainer_of(node, type, member) \
   ((type*)((char*)(node) - (unsigned long)(&((type*)0)->member)))

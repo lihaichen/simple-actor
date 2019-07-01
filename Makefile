@@ -6,11 +6,13 @@ src/actor_start.c \
 src/actor_timer.c \
 src/actor_io.c \
 src/actor_serial.c \
-src/actor_pipe.c 
+src/actor_pipe.c \
+src/actor_dict.c 
 
 TEST_C_SOURCES += test/main.c
 
-UNIT_C_SOURCES += test/io_test.c  
+UNIT_C_SOURCES += test/dict_test.c
+#test/io_test.c \
 #test/server_test.c 
 #test/mq_test.c  
 #test/heap_test.c 
