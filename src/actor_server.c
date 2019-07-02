@@ -69,7 +69,7 @@ void actor_context_grab(struct actor_context* ctx) {
 struct actor_context* actor_context_release(struct actor_context* ctx) {
   ATOM_DEC(&ctx->ref);
   if (ctx->ref == 0) {
-    ACTOR_PRINT("actor[%s] release\n", ctx->name);
+    // ACTOR_PRINT("actor[%s] release\n", ctx->name);
     // 消息队列的消息处理掉
     while (1) {
       struct actor_message msg;
@@ -78,10 +78,16 @@ struct actor_context* actor_context_release(struct actor_context* ctx) {
         break;
       actor_destroy_message(&msg);
     }
+
     ACTOR_SPIN_LOCK(&G_NODE);
     alist_remove(&ctx->list);
     ACTOR_SPIN_UNLOCK(&G_NODE);
     actor_mq_release(ctx->queue);
+    // call cb
+    if (ctx->cb) {
+      ctx->cb(ctx, ctx->cb_ud, ACTOR_MSG_TYPE_EXIT, 0, NULL, NULL, 0);
+    }
+
     ACTOR_FREE(ctx);
     context_dec();
     return NULL;

@@ -18,6 +18,10 @@ int print_cb(struct actor_context* context,
     printf("[%s] init...\n", actor_context_name(context));
     return 0;
   }
+  if (type == ACTOR_MSG_TYPE_EXIT) {
+    printf("[%s] exit...\n", actor_context_name(context));
+    return 0;
+  }
   unsigned long long ms = 0;
   ACTOR_GET_TICK(&ms);
   printf("ctx %p name[%s] time[%lld] ===>\n", context,
@@ -130,6 +134,6 @@ int main() {
   // close_serial(serial);
 
 breakout:
-  printf("end\n");
+  printf("main exit...\n");
   actor_stop();
 }

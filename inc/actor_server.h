@@ -13,7 +13,8 @@ struct actor_message;
 #define ACTOR_MSG_TYPE_BIN 1
 #define ACTOR_MSG_TYPE_RESPONSE 2
 #define ACTOR_MSG_TYPE_INIT 3
-#define ACTOR_MSG_TYPE_EXIT 4
+#define ACTOR_MSG_TYPE_EXIT \
+  4  // can't call send msg function.eg actor_context_send.
 #define ACTOR_MSG_TYPE_SYSTEM 5
 #define ACTOR_MSG_TYPE_ERROR 6
 #define ACTOR_MSG_TYPE_IO 7
