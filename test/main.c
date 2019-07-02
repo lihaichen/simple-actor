@@ -126,7 +126,7 @@ int main() {
 #else
 #endif
 
-  sleep(20);
+  sleep(5);
   // close_serial(serial);
 
 breakout:
