@@ -79,6 +79,7 @@ int actor_io_fd_write(actor_io_t* io, int enable) {
 }
 
 void actor_io_init(void) {
+  G_NODE.quit = 0;
   ACTOR_SPIN_INIT(&G_NODE);
   alist_init(&G_NODE.list);
   G_NODE.pipe = create_pipe(NULL, 16, 16, 20);

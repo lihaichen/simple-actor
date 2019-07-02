@@ -30,6 +30,7 @@ static void* thread_worker(void* p);
 static actor_timer_node_t G_NODE;
 
 void actor_timer_init(void) {
+  G_NODE.quit = 0;
   ACTOR_SPIN_INIT(&G_NODE);
   ACTOR_SEM_INIT(&G_NODE.sem, 0, 0);
   aheap_init(&G_NODE.heap, 16, min_heap);

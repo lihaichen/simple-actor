@@ -60,6 +60,7 @@ void actor_start(int thread_count) {
   pthread_cond_init(&M.cond, NULL);
   M.count = thread_count;
   M.sleep = 0;
+  M.quit = 0;
   actor_globalmq_init();
   actor_server_init();
   actor_timer_init();
