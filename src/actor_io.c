@@ -98,6 +98,7 @@ void actor_io_deinit(void) {
   }
   pthread_join(G_NODE.pid, NULL);
   destroy_pipe(G_NODE.pipe);
+  G_NODE.pipe = NULL;
   ACTOR_SPIN_DESTROY(&G_NODE);
   return;
 }
