@@ -96,7 +96,6 @@ void actor_io_deinit(void) {
     ACTOR_PRINT("actor_io_deinit write pipe %d\n", errno);
   }
   pthread_join(G_NODE.pid, NULL);
-  // ACTOR_SPIN_UNLOCK(&G_NODE);
   destroy_pipe(G_NODE.pipe);
   ACTOR_SPIN_DESTROY(&G_NODE);
   return;

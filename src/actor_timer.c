@@ -16,6 +16,7 @@ typedef struct actor_timer_node {
   struct actor_spinlock lock;
   pthread_t pid;
   ACTOR_SEM_TYPE sem;
+  int quit;
 } actor_timer_node_t;
 
 static int min_heap(void* a, void* b);
@@ -38,7 +39,8 @@ void actor_timer_init(void) {
 
 void actor_timer_deinit(void) {
   actor_timer_t* timer = NULL;
-  pthread_cancel(G_NODE.pid);
+  G_NODE.quit = 1;
+  pthread_join(G_NODE.pid, NULL);
   ACTOR_SPIN_LOCK(&G_NODE);
   do {
     timer = aheap_delFist(&G_NODE.heap);
@@ -152,7 +154,8 @@ static int find_timer(struct actor_context* context, int session) {
   return 0;
 }
 static void* thread_worker(void* p) {
-  while (1) {
+  ACTOR_PRINT("thread_timer_worker start\n");
+  while (!G_NODE.quit) {
     actor_tick_t current_ms;
     actor_timer_t* timer = NULL;
     struct timespec ts;
@@ -190,5 +193,6 @@ static void* thread_worker(void* p) {
     ts.tv_sec = current_ms / 1000;
     ACTOR_SEM_WAIT_TIME(&G_NODE.sem, &ts);
   }
+  ACTOR_PRINT("thread_timer_worker exit\n");
   return NULL;
 }
