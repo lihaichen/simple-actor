@@ -23,6 +23,7 @@ struct actor_io_node {
   struct actor_spinlock lock;
   int poll_sum;
   pthread_t pid;
+  int quit;
 };
 
 static struct actor_io_node G_NODE;
@@ -90,8 +91,12 @@ void actor_io_init(void) {
 }
 
 void actor_io_deinit(void) {
-  pthread_cancel(G_NODE.pid);
-  ACTOR_SPIN_UNLOCK(&G_NODE);
+  G_NODE.quit = 1;
+  if (write(G_NODE.pipe->fd[1], "K", 1) != 1) {
+    ACTOR_PRINT("actor_io_deinit write pipe %d\n", errno);
+  }
+  pthread_join(G_NODE.pid, NULL);
+  // ACTOR_SPIN_UNLOCK(&G_NODE);
   destroy_pipe(G_NODE.pipe);
   ACTOR_SPIN_DESTROY(&G_NODE);
   return;
@@ -128,7 +133,8 @@ static void* thread_io_worker(void* arg) {
   alist_node_t* list = &G_NODE.list;
   actor_io_t* io = NULL;
   int wait_time = -1, nfds = 0, poll_sum = 0;
-  while (1) {
+  ACTOR_PRINT("thread_io_worker start\n");
+  while (!G_NODE.quit) {
     if (G_NODE.poll_sum < 1) {
       ACTOR_MSLEEP(100);
       continue;
@@ -182,6 +188,7 @@ static void* thread_io_worker(void* arg) {
     }
     ACTOR_MSLEEP(5);
   }
+  ACTOR_PRINT("thread_io_worker exit\n");
   return NULL;
 }
 
