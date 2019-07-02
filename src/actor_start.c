@@ -14,6 +14,7 @@ struct monitor {
 };
 
 static struct monitor M;
+static void thread_worker_stop(void);
 
 void actor_thread_wakeup(void) {
   if (M.sleep > 0) {
@@ -75,7 +76,7 @@ void actor_stop() {
   actor_timer_deinit();
   actor_server_deinit();
   actor_globalmq_deinit();
-  
+
   pthread_cond_destroy(&M.cond);
   ACTOR_DEL_LOCK(&M.mutex);
   ACTOR_FREE(M.pid);
