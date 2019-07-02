@@ -30,7 +30,7 @@ static void* thread_worker(void* p);
 static actor_timer_node_t G_NODE;
 
 void actor_timer_init(void) {
-  G_NODE.quit = 0;
+  memset(&G_NODE, 0, sizeof(G_NODE));
   ACTOR_SPIN_INIT(&G_NODE);
   ACTOR_SEM_INIT(&G_NODE.sem, 0, 0);
   aheap_init(&G_NODE.heap, 16, min_heap);
@@ -41,6 +41,7 @@ void actor_timer_init(void) {
 void actor_timer_deinit(void) {
   actor_timer_t* timer = NULL;
   G_NODE.quit = 1;
+  ACTOR_SEM_POST(&G_NODE.sem);
   pthread_join(G_NODE.pid, NULL);
   ACTOR_SPIN_LOCK(&G_NODE);
   do {
@@ -186,7 +187,7 @@ static void* thread_worker(void* p) {
 
     ACTOR_GET_TICK(&current_ms);
     if (diff < 0) {
-      current_ms += 1000 * 10;  // delay 1 second
+      current_ms += 1000;  // delay 1 second
     } else {
       current_ms += diff;
     }

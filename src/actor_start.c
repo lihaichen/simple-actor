@@ -54,13 +54,12 @@ static void thread_worker_stop() {
 }
 
 void actor_start(int thread_count) {
+  memset(&M, 0, sizeof(M));
   M.pid = ACTOR_MALLOC(sizeof(*M.pid) * thread_count);
   ACTOR_ASSERT(M.pid);
   ACTOR_INIT_LOCK(&M.mutex);
   pthread_cond_init(&M.cond, NULL);
   M.count = thread_count;
-  M.sleep = 0;
-  M.quit = 0;
   actor_globalmq_init();
   actor_server_init();
   actor_timer_init();

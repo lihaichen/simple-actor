@@ -79,7 +79,7 @@ int actor_io_fd_write(actor_io_t* io, int enable) {
 }
 
 void actor_io_init(void) {
-  G_NODE.quit = 0;
+  memset(&G_NODE, 0, sizeof(G_NODE));
   ACTOR_SPIN_INIT(&G_NODE);
   alist_init(&G_NODE.list);
   G_NODE.pipe = create_pipe(NULL, 16, 16, 20);
@@ -187,6 +187,9 @@ static void* thread_io_worker(void* arg) {
       }
     }
     ACTOR_MSLEEP(5);
+  }
+  if (fds != NULL) {
+    ACTOR_FREE(fds);
   }
   ACTOR_PRINT("thread_io_worker exit\n");
   return NULL;
@@ -343,8 +346,11 @@ actor_io_t* create_io(int send_buf_len, int recv_buf_len) {
 
 int delete_io(actor_io_t* io) {
   ACTOR_ASSERT(io != NULL);
-  ACTOR_FREE(io->send_buf);
+  if (io->send_buf != NULL) {
+    ACTOR_FREE(io->send_buf);
+  }
   ACTOR_FREE(io->recv_buf);
   ACTOR_SPIN_DESTROY(io);
+  ACTOR_FREE(io);
   return 0;
 }

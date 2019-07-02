@@ -41,6 +41,7 @@ static void context_dec() {
 }
 
 int actor_server_init() {
+  memset(&G_NODE, 0, sizeof(G_NODE));
   G_NODE.total = 0;
   alist_init(&G_NODE.list);
   ACTOR_SPIN_INIT(&G_NODE);
