@@ -83,6 +83,8 @@ typedef struct actor_dict_interator {
     }                                        \
   } while (0)
 
+#define actor_dict_count(d) (d)->ht[0].used
+
 extern actor_dict_t* actor_dict_create(actor_dict_type_t* type);
 extern actor_dict_entry_t* actor_dict_add_raw(actor_dict_t* dict,
                                               void* key,
@@ -92,10 +94,11 @@ actor_dict_entry_t* actor_dict_find(actor_dict_t* dict, void* key);
 extern void* actor_fetch_value(actor_dict_t* dict, void* key);
 extern int actor_dict_delete(actor_dict_t* dict, void* key);
 extern void actor_dict_destroy(actor_dict_t* dict);
-extern void actor_dict_enmpty(actor_dict_t* dict);
+extern void actor_dict_empty(actor_dict_t* dict);
 extern actor_dict_interator_t* actor_dict_create_iterator(actor_dict_t* dict);
 extern void actor_dict_destroy_iterator(actor_dict_interator_t* iter);
-extern actor_dict_entry_t* actor_dict_iterator_next(actor_dict_interator_t* iter);
+extern actor_dict_entry_t* actor_dict_iterator_next(
+    actor_dict_interator_t* iter);
 
 ACTOR_HASH_TYPE
 murmurhash(const char* key, int len, int seed);

@@ -262,7 +262,7 @@ static int process_io_recv(actor_io_t* io) {
         default:
           break;
       }
-      ACTOR_PRINT("read[%d] error %d\n", io->fd, errno);
+      // ACTOR_PRINT("read[%d] error %d\n", io->fd, errno);
       break;
     }
     ACTOR_SPIN_LOCK(io);

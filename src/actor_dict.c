@@ -118,7 +118,7 @@ actor_dict_entry_t* actor_dict_find(actor_dict_t* dict, void* key) {
   return entry;
 }
 
-void actor_dict_enmpty(actor_dict_t* dict) {
+void actor_dict_empty(actor_dict_t* dict) {
   int index = 0;
   while (dict->ht[0].used) {
     if (dict->ht[0].table[index]) {
