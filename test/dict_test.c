@@ -13,7 +13,7 @@ static unsigned int hash_int(const void* key) {
   for (int i = 0; i < sizeof(int); i++) {
     buf[i] = (key_v >> (8 * i)) & 0xFF;
   }
-  return murmurhash(buf, sizeof(int), 0);
+  return murmurhash((void*)buf, sizeof(int), 0);
 }
 
 static actor_dict_type_t type_int = {.hash = hash_int,
@@ -24,7 +24,7 @@ static actor_dict_type_t type_int = {.hash = hash_int,
                                      .val_delete = NULL};
 
 static unsigned int hash_string(const void* key) {
-  return murmurhash(key, strlen(key), 0);
+  return murmurhash((void*)key, strlen(key), 0);
 }
 
 static int key_compare_string(const void* key1, const void* key2) {

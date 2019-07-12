@@ -101,7 +101,7 @@ extern actor_dict_entry_t* actor_dict_iterator_next(
     actor_dict_interator_t* iter);
 
 ACTOR_HASH_TYPE
-murmurhash(const char* key, int len, int seed);
+murmurhash(void* key, int len, int seed);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

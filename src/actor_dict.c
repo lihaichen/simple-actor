@@ -249,7 +249,7 @@ static int dict_expand_if_need(actor_dict_t* dict) {
 }
 
 ACTOR_HASH_TYPE
-murmurhash(const char* key, int len, int seed) {
+murmurhash(void * key, int len, int seed) {
   ACTOR_HASH_TYPE c1 = 0xcc9e2d51;
   ACTOR_HASH_TYPE c2 = 0x1b873593;
   ACTOR_HASH_TYPE r1 = 15;
