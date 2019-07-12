@@ -210,8 +210,8 @@ static int process_io_timeout() {
         int len = io->recv_w - io->recv_r;
         if (len < 0)
           len += io->recv_buf_len;
-        ACTOR_PRINT("timeout fd[%d] len[%d] %d %d\n", io->fd, len, io->recv_r,
-                    io->recv_w);
+        // ACTOR_PRINT("timeout fd[%d] len[%d] %d %d\n", io->fd, len, io->recv_r,
+        //             io->recv_w);
         if (io->context) {
           unsigned char* tmp = ACTOR_MALLOC(len + 1);
           if (tmp != NULL) {
