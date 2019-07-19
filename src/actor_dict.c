@@ -187,10 +187,10 @@ void actor_dict_destroy_iterator(actor_dict_interator_t* iter) {
 
 actor_dict_entry_t* actor_dict_iterator_next(actor_dict_interator_t* iter) {
   while (1) {
-    if (iter->index >= iter->dict->ht[0].size) {
-      break;
-    }
     if (iter->entry == NULL) {
+      if (iter->index >= iter->dict->ht[0].size) {
+        break;
+      }
       iter->entry = iter->dict->ht[0].table[iter->index++];
     } else {
       iter->entry = iter->next_entry;
@@ -249,7 +249,7 @@ static int dict_expand_if_need(actor_dict_t* dict) {
 }
 
 ACTOR_HASH_TYPE
-murmurhash(void * key, int len, int seed) {
+murmurhash(void* key, int len, int seed) {
   ACTOR_HASH_TYPE c1 = 0xcc9e2d51;
   ACTOR_HASH_TYPE c2 = 0x1b873593;
   ACTOR_HASH_TYPE r1 = 15;
